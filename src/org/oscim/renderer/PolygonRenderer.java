@@ -162,7 +162,7 @@ public final class PolygonRenderer {
 			Matrices m, boolean first, boolean clip) {
 
 		GLState.test(false, true);
-
+		//glVertex2f(2,2);//output vertex
 		GLState.useProgram(polygonProgram);
 		GLState.enableVertexArrays(hPolygonVertexPosition, -1);
 		glVertexAttribPointer(hPolygonVertexPosition, 2, GL_SHORT,
@@ -178,8 +178,6 @@ public final class PolygonRenderer {
 			cur = 0;
 
 		int start = cur;
-
-		float scale = (float)pos.getZoomScale();
 
 		Layer l = layer;
 		for (; l != null && l.type == Layer.POLYGON; l = l.next) {
@@ -206,13 +204,13 @@ public final class PolygonRenderer {
 
 			// draw up to 7 layers into stencil buffer
 			if (cur == STENCIL_BITS - 1) {
-				fillPolygons(start, cur, zoom, scale);
+				fillPolygons(start, cur, zoom, pos.scale);
 				start = cur = 0;
 			}
 		}
 
 		if (cur > 0)
-			fillPolygons(start, cur, zoom, scale);
+			fillPolygons(start, cur, zoom, pos.scale);
 
 		if (clip) {
 			if (first) {
@@ -296,7 +294,7 @@ public final class PolygonRenderer {
 		}
 	}
 
-	public static void drawOver(Matrices m, boolean drawColor, int color) {
+	public static void drawOver(Matrices m) {
 		if (GLState.useProgram(polygonProgram)) {
 
 			GLState.enableVertexArrays(hPolygonVertexPosition, -1);
@@ -312,26 +310,18 @@ public final class PolygonRenderer {
 		 * a quad with func 'always' and op 'zero'
 		 */
 
-		if (drawColor) {
-			GlUtils.setColor(hPolygonColor, color, 1);
-			GLState.blend(true);
-		} else {
-			// disable drawing to framebuffer (will be re-enabled in fill)
-			glColorMask(false, false, false, false);
-		}
-		// always pass stencil test:
-		//glStencilFunc(GL_ALWAYS, 0x00, 0x00);
-		glStencilFunc(GL_EQUAL, CLIP_BIT, CLIP_BIT);
+		// disable drawing to framebuffer (will be re-enabled in fill)
+		glColorMask(false, false, false, false);
 
+		// always pass stencil test:
+		glStencilFunc(GL_ALWAYS, 0x00, 0x00);
 		// write to all bits
 		glStencilMask(0xFF);
 		// zero out area to draw to
 		glStencilOp(GLES20.GL_KEEP, GLES20.GL_KEEP, GLES20.GL_ZERO);
 
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-		if (!drawColor)
-			glColorMask(true, true, true, true);
+		glColorMask(true, true, true, true);
 	}
 
 	private static float[] debugFillColor = { 0.3f, 0.0f, 0.0f, 0.3f };

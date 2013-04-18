@@ -81,7 +81,8 @@ public class MapView extends RelativeLayout {
 	//private final MapZoomControls mMapZoomControls;
 
 	private final TouchHandler mTouchEventHandler;
-	private final Compass mCompass;
+	public  Compass mCompass;
+
 
 	private final TileManager mTileManager;
 	private final OverlayManager mOverlayManager;
@@ -108,6 +109,8 @@ public class MapView extends RelativeLayout {
 
 	public final float dpi;
 
+	private final GLView mGLView2;
+
 	/**
 	 * @param context
 	 *            the enclosing MapActivity instance.
@@ -117,6 +120,9 @@ public class MapView extends RelativeLayout {
 	 */
 	public MapView(Context context) {
 		this(context, null);
+
+
+
 	}
 
 	/**
@@ -129,6 +135,17 @@ public class MapView extends RelativeLayout {
 	 *             {@link MapActivity} .
 	 */
 
+
+
+	float time;
+
+	public void setmCompass(Compass mCompass) {
+		this.mCompass = mCompass;
+	}
+
+
+
+
 	public MapView(Context context, AttributeSet attributeSet) {
 		super(context, attributeSet);
 
@@ -137,13 +154,15 @@ public class MapView extends RelativeLayout {
 					"context is not an instance of MapActivity");
 		}
 
+		time = System.currentTimeMillis()+2000;
 		this.setWillNotDraw(true);
+
 
 		DisplayMetrics metrics = getResources().getDisplayMetrics();
 		dpi = Math.max(metrics.xdpi, metrics.ydpi);
 
 		// TODO make this dpi dependent
-		Tile.SIZE = 400;
+		Tile.TILE_SIZE = 400;
 
 		MapActivity mapActivity = (MapActivity) context;
 
@@ -154,13 +173,14 @@ public class MapView extends RelativeLayout {
 
 		mTouchEventHandler = new TouchHandler(mapActivity, this);
 
-		mCompass = new Compass(mapActivity, this);
+
 
 		mJobQueue = new JobQueue();
 
 		mTileManager = new TileManager(this);
 
-		mGLView = new GLView(context, this);
+		mGLView = new GLView(context, this,0);
+
 		mMapWorkers = new MapWorker[mNumMapWorkers];
 
 		mDebugSettings = new DebugSettings();
@@ -174,74 +194,57 @@ public class MapView extends RelativeLayout {
 
 		mapActivity.registerMapView(this);
 
+		if (!mMapViewPosition.isValid()) {
+			Log.d(TAG, "set default start position");
+			setMapCenter(new MapPosition(new GeoPoint(0, 0), (byte) 2, 1));
+		}
+
+
+
+
+		mGLView2 = new GLView(context, this,0);
 		LayoutParams params = new LayoutParams(
-				android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-				android.view.ViewGroup.LayoutParams.MATCH_PARENT);
+				300,
+				300);
+
+	// params.addRule(  RelativeLayout.ABOVE);
+	// params.addRule(  RelativeLayout.ALIGN_TOP);
+	 params.addRule(  RelativeLayout.ALIGN_PARENT_BOTTOM);
+	// params.addRule(RelativeLayout.ALIGN_BOTTOM);
+
+	 //params.bottomMargin = this.ALIGN_BOTTOM;
+ //params.alignWithParent= true;
+
+
+
+		//addView(mGLView2, params);
+
+		 params = new LayoutParams(
+				RelativeLayout.LayoutParams.MATCH_PARENT,
+				RelativeLayout.LayoutParams.MATCH_PARENT);
 
 		addView(mGLView, params);
+
+
+
 
 		//mMapZoomControls = new MapZoomControls(mapActivity, this);
 		//mMapZoomControls.setShowMapZoomControls(true);
 		mRotationEnabled = true;
 
 		//mOverlayManager.add(new GenericOverlay(this, new GridOverlay(this)));
-
 		mOverlayManager.add(new BuildingOverlay(this));
 		mOverlayManager.add(new LabelingOverlay(this));
 
-		//mOverlayManager.add(new GenericOverlay(this, new TileOverlay(this)));
-		//mOverlayManager.add(new GenericOverlay(this, new CustomOverlay(this)));
-		//mOverlayManager.add(new MapLensOverlay(this));
+		//mOverlayManager.add(new GenericOverlay(this, new TestLineOverlay(this)));
+		//mOverlayManager.add(new GenericOverlay(this, new TestOverlay(this)));
 
+		//		if (testRegionZoom)
+		//			mRegionLookup = new RegionLookup(this);
+
+		//this.getOverlays().add(0, new GenericOverlay(this , new TileOverlay ( this)));
 		clearMap();
-	}
 
-	void destroy() {
-		mTileManager.destroy();
-
-		for (MapWorker mapWorker : mMapWorkers) {
-			mapWorker.pause();
-			mapWorker.interrupt();
-
-			mapWorker.getTileGenerator().getMapDatabase().close();
-
-			try {
-				mapWorker.join(10000);
-			} catch (InterruptedException e) {
-				// restore the interrupted status
-				Thread.currentThread().interrupt();
-			}
-
-		}
-	}
-
-	private boolean mPausing = false;
-
-	void onPause() {
-		mPausing = true;
-
-		Log.d(TAG, "onPause");
-		mJobQueue.clear();
-		mapWorkersPause(true);
-
-		if (this.mCompassEnabled)
-			mCompass.disable();
-
-	}
-
-	void onResume() {
-		Log.d(TAG, "onResume");
-		mapWorkersProceed();
-
-		if (this.mCompassEnabled)
-			mCompass.enable();
-
-		mPausing = false;
-	}
-
-	public void onStop() {
-		Log.d(TAG, "onStop");
-		//mTileManager.destroy();
 	}
 
 	@Override
@@ -276,8 +279,21 @@ public class MapView extends RelativeLayout {
 	}
 
 	public void render() {
-		if (!MapView.debugFrameTime)
+		if (!MapView.debugFrameTime){
 			mGLView.requestRender();
+
+		}
+	mGLView2.requestRender();
+
+
+
+	}
+
+	/**
+	 * @return the current position and zoom level of this MapView.
+	 */
+	public MapViewPosition getMapPosition() {
+		return mMapViewPosition;
 	}
 
 	public void enableRotation(boolean enable) {
@@ -298,9 +314,9 @@ public class MapView extends RelativeLayout {
 			enableRotation(false);
 
 		if (enable)
-			mCompass.enable();
+			mCompass.start();
 		else
-			mCompass.disable();
+			mCompass.stop();
 	}
 
 	public boolean getCompassEnabled() {
@@ -386,19 +402,10 @@ public class MapView extends RelativeLayout {
 		if (startPos == null)
 			startPos = new GeoPoint(0, 0);
 
-		MapPosition mapPosition = new MapPosition();
-		mapPosition.setPosition(startPos);
+		if (mapInfo.startZoomLevel != null)
+			return new MapPosition(startPos, (mapInfo.startZoomLevel).byteValue(), 1);
 
-		if (mapInfo.startZoomLevel == null)
-			mapPosition.setZoomLevel(12);
-		else
-			mapPosition.setZoomLevel((mapInfo.startZoomLevel).byteValue());
-
-		return mapPosition;
-	}
-
-	public void setMapPosition(MapPosition mapPosition) {
-		mMapViewPosition.setMapPosition(mapPosition);
+		return new MapPosition(startPos, (byte) 12, 1);
 	}
 
 	/**
@@ -544,6 +551,95 @@ public class MapView extends RelativeLayout {
 		return false;
 	}
 
+	void destroy() {
+		for (MapWorker mapWorker : mMapWorkers) {
+			mapWorker.pause();
+			mapWorker.interrupt();
+
+			mapWorker.getTileGenerator().getMapDatabase().close();
+
+			try {
+				mapWorker.join(10000);
+			} catch (InterruptedException e) {
+				// restore the interrupted status
+				Thread.currentThread().interrupt();
+			}
+
+		}
+	}
+
+	private boolean mPausing = false;
+
+	void onPause() {
+		mPausing = true;
+
+		Log.d(TAG, "onPause");
+		mJobQueue.clear();
+		mapWorkersPause(true);
+
+		if (this.mCompassEnabled)
+			mCompass.stop();
+
+	}
+
+	void onResume() {
+		Log.d(TAG, "onResume");
+		mapWorkersProceed();
+
+		if (this.mCompassEnabled)
+			mCompass.start();
+
+		mPausing = false;
+	}
+
+	public void onStop() {
+		Log.d(TAG, "onStop");
+		mTileManager.destroy();
+	}
+
+	/**
+	 * @return the maximum possible zoom level.
+	 */
+	byte getMaximumPossibleZoomLevel() {
+		return (byte) MapViewPosition.MAX_ZOOMLEVEL;
+		// Math.min(mMapZoomControls.getZoomLevelMax(),
+		// mMapGenerator.getZoomLevelMax());
+	}
+
+	/**
+	 * @return true if the current center position of this MapView is valid,
+	 *         false otherwise.
+	 */
+	boolean hasValidCenter() {
+		MapInfo mapInfo;
+
+		if (!mMapViewPosition.isValid())
+			return false;
+
+		if ((mapInfo = mMapDatabase.getMapInfo()) == null)
+			return false;
+
+		if (!mapInfo.boundingBox.contains(getMapPosition().getMapCenter()))
+			return false;
+
+		return true;
+	}
+
+	/**
+	 * Sets the center and zoom level of this MapView and triggers a redraw.
+	 *
+	 * @param mapPosition
+	 *            the new map position of this MapView.
+	 */
+	public void setMapCenter(MapPosition mapPosition) {
+		Log.d(TAG, "setMapCenter "
+				+ " lat: " + mapPosition.lat
+				+ " lon: " + mapPosition.lon);
+
+		mMapViewPosition.setMapCenter(mapPosition);
+		redrawMap(true);
+	}
+
 	/**
 	 * Sets the center of the MapView and triggers a redraw.
 	 *
@@ -557,7 +653,7 @@ public class MapView extends RelativeLayout {
 	}
 
 	/**
-	 * @return MapViewPosition
+	 * @return MapPosition
 	 */
 	public MapViewPosition getMapViewPosition() {
 		return mMapViewPosition;
@@ -621,10 +717,11 @@ public class MapView extends RelativeLayout {
 		return mTileManager;
 	}
 
-	/**
-	 * @return estimated visible axis aligned bounding box
-	 */
 	public BoundingBox getBoundingBox() {
 		return mMapViewPosition.getViewBox();
+	}
+
+	public GeoPoint getCenter() {
+		return new GeoPoint(mMapPosition.lat, mMapPosition.lon);
 	}
 }

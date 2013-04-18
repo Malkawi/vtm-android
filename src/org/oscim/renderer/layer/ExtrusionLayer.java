@@ -18,9 +18,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.ShortBuffer;
 
-import org.oscim.core.GeometryBuffer;
 import org.oscim.core.Tile;
-import org.oscim.database.IMapDatabaseCallback.WayData;
 import org.oscim.renderer.BufferObject;
 import org.oscim.renderer.GLRenderer;
 import org.oscim.utils.LineClipper;
@@ -37,9 +35,9 @@ import android.util.Log;
 public class ExtrusionLayer extends Layer {
 	private final static String TAG = ExtrusionLayer.class.getName();
 	private static final float S = GLRenderer.COORD_SCALE;
-	private final VertexItem mVertices;
-	private VertexItem mCurVertices;
-	private final VertexItem mIndices[], mCurIndices[];
+	private final VertexPoolItem mVertices;
+	private VertexPoolItem mCurVertices;
+	private final VertexPoolItem mIndices[], mCurIndices[];
 	private LineClipper mClipper;
 
 	// indices for:
@@ -59,61 +57,38 @@ public class ExtrusionLayer extends Layer {
 	private final static int IND_OUTLINE = 3;
 
 	public boolean compiled = false;
-	private final float mGroundResolution;
 
-	public ExtrusionLayer(int level, float groundResolution) {
+	//private int[] mVboIds;
+
+	public ExtrusionLayer(int level) {
 		this.type = Layer.EXTRUSION;
 		this.level = level;
 
-		mGroundResolution = groundResolution;
-		mVertices = mCurVertices = VertexItem.pool.get();
+		mVertices = mCurVertices = VertexPool.get();
 
-		mIndices = new VertexItem[4];
-		mCurIndices = new VertexItem[4];
+		mIndices = new VertexPoolItem[4];
+		mCurIndices = new VertexPoolItem[4];
 		for (int i = 0; i < 4; i++)
-			mIndices[i] = mCurIndices[i] = VertexItem.pool.get();
+			mIndices[i] = mCurIndices[i] = VertexPool.get();
 
-		mClipper = new LineClipper(0, 0, Tile.SIZE, Tile.SIZE);
+		mClipper = new LineClipper(0, 0, Tile.TILE_SIZE, Tile.TILE_SIZE);
 	}
 
-	public void addBuildings(WayData way) {
+	public void addBuildings(float[] points, short[] index, int height) {
 
-		short[] index = way.geom.index;
-		float[] points = way.geom.points;
+		// start outer ring
+		int outer = 0;
 
-		float height = way.height;
-		float minHeight = way.minHeight;
-
-		// 12m default
-		if (height == 0)
-			height = 12 * 100;
-
-		// 10 cm steps
-		float sfactor = 1 / 10f;
-		height *= sfactor;
-		minHeight *= sfactor;
-
-		// match height with ground resultion
-		// (meter per pixel)
-		height /= mGroundResolution;
-		minHeight /= mGroundResolution;
-
-		// my preference
-		height *= 0.85;
-		minHeight *= 0.85;
-
-		int length = 0, ipos = 0, ppos = 0;
-
-		boolean complexOutline = false;
-		int geomIndexPos = 0;
-		int geomPointPos = 0;
-
-		boolean simpleOutline = true;
-
-		// current vertex id
+		boolean simple = true;
 		int startVertex = mNumVertices;
 
-		for (int n = index.length; ipos < n; ipos++, ppos += length) {
+		// just a guessing to make it look ok
+		if (height == 0)
+			height = 10;
+		height = (int) (height * -Math.log(height / 100000f) * 3.6f);
+
+		int length = 0;
+		for (int ipos = 0, ppos = 0, n = index.length; ipos < n; ipos++, ppos += length) {
 			length = index[ipos];
 
 			// end marker
@@ -122,12 +97,9 @@ public class ExtrusionLayer extends Layer {
 
 			// start next polygon
 			if (length == 0) {
-				if (complexOutline)
-					addRoof(startVertex, way.geom, geomIndexPos, geomPointPos);
-
+				outer = ipos + 1;
 				startVertex = mNumVertices;
-				simpleOutline = true;
-				complexOutline = false;
+				simple = true;
 				continue;
 			}
 
@@ -147,23 +119,17 @@ public class ExtrusionLayer extends Layer {
 				continue;
 
 			// check if polygon contains inner rings
-			if (simpleOutline && (ipos < n - 1) && (index[ipos + 1] > 0))
-				simpleOutline = false;
+			if (simple && (ipos < n - 1) && (index[ipos + 1] > 0))
+				simple = false;
 
-			boolean convex = addOutline(points, ppos, len, minHeight, height, simpleOutline);
+			boolean convex = addOutline(points, ppos, len, height, simple);
 
-			if (simpleOutline && (convex || len <= 8))
+			if (simple && (convex || len <= 8))
 				addRoofSimple(startVertex, len);
-			else if (!complexOutline)  {
-				complexOutline = true;
-				// keep start postion of polygon and defer roof building
-				// as it modifies the geometry array.
-				geomIndexPos = ipos;
-				geomPointPos = ppos;
+			else if (ipos == outer) { // add roof only once
+				addRoof(startVertex, index, ipos, points, ppos);
 			}
 		}
-		if (complexOutline)
-			addRoof(startVertex, way.geom, geomIndexPos, geomPointPos);
 	}
 
 	private void addRoofSimple(int startVertex, int len) {
@@ -174,9 +140,9 @@ public class ExtrusionLayer extends Layer {
 		short first = (short) (startVertex + 1);
 
 		for (int k = 0; k < len - 4; k += 2) {
-			if (i == VertexItem.SIZE) {
-				mCurIndices[IND_ROOF].used = VertexItem.SIZE;
-				mCurIndices[IND_ROOF].next = VertexItem.pool.get();
+			if (i == VertexPoolItem.SIZE) {
+				mCurIndices[IND_ROOF].used = VertexPoolItem.SIZE;
+				mCurIndices[IND_ROOF].next = VertexPool.get();
 				mCurIndices[IND_ROOF] = mCurIndices[2].next;
 				indices = mCurIndices[IND_ROOF].vertices;
 				i = 0;
@@ -188,10 +154,7 @@ public class ExtrusionLayer extends Layer {
 		mCurIndices[IND_ROOF].used = i;
 	}
 
-	private void addRoof(int startVertex, GeometryBuffer geom, int ipos, int ppos) {
-		short[] index = geom.index;
-		float[] points = geom.points;
-
+	private void addRoof(int startVertex, short[] index, int ipos, float[] points, int ppos) {
 		int len = 0;
 		int rings = 0;
 
@@ -213,14 +176,14 @@ public class ExtrusionLayer extends Layer {
 
 		if (used > 0) {
 			// get back to the last item added..
-			VertexItem it = mIndices[IND_ROOF];
+			VertexPoolItem it = mIndices[IND_ROOF];
 			while (it.next != null)
 				it = it.next;
 			mCurIndices[IND_ROOF] = it;
 		}
 	}
 
-	private boolean addOutline(float[] points, int pos, int len, float minHeight, float height,
+	private boolean addOutline(float[] points, int pos, int len, float height,
 			boolean convex) {
 
 		// add two vertices for last face to make zigzag indices work
@@ -228,7 +191,6 @@ public class ExtrusionLayer extends Layer {
 		int vertexCnt = len + (addFace ? 2 : 0);
 
 		short h = (short) height;
-		short mh = (short) minHeight;
 
 		float cx = points[pos + len - 2];
 		float cy = points[pos + len - 1];
@@ -266,9 +228,9 @@ public class ExtrusionLayer extends Layer {
 			uy = vy;
 
 			/* add bottom and top vertex for each point */
-			if (v == VertexItem.SIZE) {
-				mCurVertices.used = VertexItem.SIZE;
-				mCurVertices.next = VertexItem.pool.get();
+			if (v == VertexPoolItem.SIZE) {
+				mCurVertices.used = VertexPoolItem.SIZE;
+				mCurVertices.next = VertexPool.get();
 				mCurVertices = mCurVertices.next;
 				vertices = mCurVertices.vertices;
 				v = 0;
@@ -279,7 +241,7 @@ public class ExtrusionLayer extends Layer {
 			vertices[v + 1] = vertices[v + 5] = (short) (cy * S);
 
 			// set height
-			vertices[v + 2] = mh;
+			vertices[v + 2] = 0;
 			vertices[v + 6] = h;
 
 			// get direction to next point
@@ -348,8 +310,8 @@ public class ExtrusionLayer extends Layer {
 			// index id relative to mCurIndices item
 			int ind = mCurIndices[even].used;
 
-			if (ind == VertexItem.SIZE) {
-				mCurIndices[even].next = VertexItem.pool.get();
+			if (ind == VertexPoolItem.SIZE) {
+				mCurIndices[even].next = VertexPool.get();
 				mCurIndices[even] = mCurIndices[even].next;
 				indices = mCurIndices[even].vertices;
 				ind = 0;
@@ -367,9 +329,9 @@ public class ExtrusionLayer extends Layer {
 			even = (even == 0 ? 1 : 0);
 
 			/* add roof outline indices */
-			VertexItem it = mCurIndices[IND_OUTLINE];
-			if (it.used == VertexItem.SIZE) {
-				it.next = VertexItem.pool.get();
+			VertexPoolItem it = mCurIndices[IND_OUTLINE];
+			if (it.used == VertexPoolItem.SIZE) {
+				it.next = VertexPool.get();
 				it = mCurIndices[IND_OUTLINE] = it.next;
 			}
 			it.vertices[it.used++] = s1;
@@ -396,7 +358,7 @@ public class ExtrusionLayer extends Layer {
 		sbuf.clear();
 		mNumIndices = 0;
 		for (int i = 0; i < 4; i++) {
-			for (VertexItem vi = mIndices[i]; vi != null; vi = vi.next) {
+			for (VertexPoolItem vi = mIndices[i]; vi != null; vi = vi.next) {
 				sbuf.put(vi.vertices, 0, vi.used);
 				mIndiceCnt[i] += vi.used;
 			}
@@ -411,7 +373,7 @@ public class ExtrusionLayer extends Layer {
 
 		// upload vertices
 		sbuf.clear();
-		for (VertexItem vi = mVertices; vi != null; vi = vi.next)
+		for (VertexPoolItem vi = mVertices; vi != null; vi = vi.next)
 			sbuf.put(vi.vertices, 0, vi.used);
 
 		sbuf.flip();
@@ -423,10 +385,10 @@ public class ExtrusionLayer extends Layer {
 		GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, 0);
 		GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
 
-		for (VertexItem i : mIndices)
-			VertexItem.pool.releaseAll(i);
+		for (VertexPoolItem i : mIndices)
+			VertexPool.release(i);
 
-		VertexItem.pool.releaseAll(mVertices);
+		VertexPool.release(mVertices);
 
 		mClipper = null;
 
@@ -442,9 +404,9 @@ public class ExtrusionLayer extends Layer {
 			mVertexBO = null;
 			//GLES20.glDeleteBuffers(2, mVboIds, 0);
 		} else {
-			VertexItem.pool.releaseAll(mVertices);
-			for (VertexItem i : mIndices)
-				VertexItem.pool.releaseAll(i);
+			VertexPool.release(mVertices);
+			for (VertexPoolItem i : mIndices)
+				VertexPool.release(i);
 		}
 	}
 
@@ -452,7 +414,7 @@ public class ExtrusionLayer extends Layer {
 	private static ShortBuffer sBuf;
 
 	public static synchronized int triangulate(float[] points, int ppos, int plen, short[] index,
-			int ipos, int rings, int vertexOffset, VertexItem item) {
+			int ipos, int rings, int vertexOffset, VertexPoolItem item) {
 
 		if (!initialized) {
 			// FIXME also cleanup on shutdown!
@@ -473,12 +435,12 @@ public class ExtrusionLayer extends Layer {
 
 		for (int k = 0, cnt = 0; k < numIndices; k += cnt) {
 
-			if (item.used == VertexItem.SIZE) {
-				item.next = VertexItem.pool.get();
+			if (item.used == VertexPoolItem.SIZE) {
+				item.next = VertexPool.get();
 				item = item.next;
 			}
 
-			cnt = VertexItem.SIZE - item.used;
+			cnt = VertexPoolItem.SIZE - item.used;
 
 			if (k + cnt > numIndices)
 				cnt = numIndices - k;

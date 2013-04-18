@@ -28,7 +28,6 @@ import org.oscim.core.Tag;
 import org.oscim.core.Tile;
 import org.oscim.database.IMapDatabase;
 import org.oscim.database.IMapDatabaseCallback;
-import org.oscim.database.IMapDatabaseCallback.WayData;
 import org.oscim.database.MapInfo;
 import org.oscim.database.MapOptions;
 import org.oscim.database.OpenResult;
@@ -75,8 +74,6 @@ public class MapDatabase implements IMapDatabase {
 	private final boolean debug = false;
 	private LwHttp lwHttp;
 
-	private final WayData mWay = new WayData();
-
 	@Override
 	public QueryResult executeQuery(JobTile tile, IMapDatabaseCallback mapDatabaseCallback) {
 		QueryResult result = QueryResult.SUCCESS;
@@ -86,7 +83,7 @@ public class MapDatabase implements IMapDatabase {
 		mMapGenerator = mapDatabaseCallback;
 
 		// scale coordinates to tile size
-		mScaleFactor = REF_TILE_SIZE / Tile.SIZE;
+		mScaleFactor = REF_TILE_SIZE / Tile.TILE_SIZE;
 
 		File f = null;
 
@@ -231,9 +228,7 @@ public class MapDatabase implements IMapDatabase {
 	private static final int TAG_ELEM_INDEX = 12;
 	private static final int TAG_ELEM_COORDS = 13;
 	private static final int TAG_ELEM_LAYER = 21;
-	private static final int TAG_ELEM_HEIGHT = 31;
-	private static final int TAG_ELEM_MIN_HEIGHT = 32;
-	private static final int TAG_ELEM_PRIORITY = 41;
+	private static final int TAG_ELEM_PRIORITY = 31;
 
 	private short[] mTmpKeys = new short[100];
 	private final Tag[] mTmpTags = new Tag[20];
@@ -340,7 +335,8 @@ public class MapDatabase implements IMapDatabase {
 
 		int end = mBytesProcessed + bytes;
 		int indexCnt = 1;
-		//int layer = 5;
+		int layer = 5;
+		int prio = 0;
 
 		boolean skip = false;
 		boolean fail = false;
@@ -350,11 +346,6 @@ public class MapDatabase implements IMapDatabase {
 			coordCnt = 2;
 			mGeom.index[0] = 2;
 		}
-
-		mWay.layer = 5;
-		mWay.priority = 0;
-		mWay.height = 0;
-		mWay.minHeight = 0;
 
 		while (mBytesProcessed < end) {
 			// read tag and wire type
@@ -391,19 +382,11 @@ public class MapDatabase implements IMapDatabase {
 					break;
 
 				case TAG_ELEM_LAYER:
-					mWay.layer = decodeVarint32();
-					break;
-
-				case TAG_ELEM_HEIGHT:
-					mWay.height= decodeVarint32();
-					break;
-
-				case TAG_ELEM_MIN_HEIGHT:
-					mWay.minHeight = decodeVarint32();
+					layer = decodeVarint32();
 					break;
 
 				case TAG_ELEM_PRIORITY:
-					mWay.priority = decodeVarint32();
+					prio = decodeVarint32();
 					break;
 
 				default:
@@ -419,20 +402,15 @@ public class MapDatabase implements IMapDatabase {
 			return false;
 		}
 
-		mWay.geom = mGeom;
-		mWay.tags = tags;
-
 		switch (type) {
 			case TAG_TILE_LINE:
-				mWay.closed = false;
-				mMapGenerator.renderWay(mWay);
+				mMapGenerator.renderWay((byte) layer, tags, mGeom, false, prio);
 				break;
 			case TAG_TILE_POLY:
-				mWay.closed = true;
-				mMapGenerator.renderWay(mWay);
+				mMapGenerator.renderWay((byte) layer, tags, mGeom, true, prio);
 				break;
 			case TAG_TILE_POINT:
-				mMapGenerator.renderPOI((byte) mWay.layer, tags, mGeom);
+				mMapGenerator.renderPOI((byte) layer, tags, mGeom);
 				break;
 		}
 

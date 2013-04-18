@@ -89,8 +89,8 @@ public final class LineTexLayer extends Layer {
 
 	public void addLine(float[] points, short[] index) {
 
-		if (vertexItems == null) {
-			curItem = vertexItems = VertexItem.pool.get();
+		if (pool == null) {
+			curItem = pool = VertexPool.get();
 
 			// HACK add one vertex offset when compiling
 			// buffer otherwise one cant use the full
@@ -103,7 +103,7 @@ public final class LineTexLayer extends Layer {
 			verticesCnt = 1;
 		}
 
-		VertexItem si = curItem;
+		VertexPoolItem si = curItem;
 
 		short v[] = si.vertices;
 		int opos = si.used;
@@ -169,8 +169,8 @@ public final class LineTexLayer extends Layer {
 				short dx = (short) (ux * DIR_SCALE);
 				short dy = (short) (uy * DIR_SCALE);
 
-				if (opos == VertexItem.SIZE) {
-					si = si.next = VertexItem.pool.get();
+				if (opos == VertexPoolItem.SIZE) {
+					si = si.next = VertexPool.get();
 					v = si.vertices;
 					opos = 0;
 				}

@@ -19,11 +19,11 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 
 import org.oscim.core.GeometryBuffer;
+import org.oscim.core.MercatorProjection;
 import org.oscim.core.Tag;
 import org.oscim.core.Tile;
 import org.oscim.database.IMapDatabase;
 import org.oscim.database.IMapDatabaseCallback;
-import org.oscim.database.IMapDatabaseCallback.WayData;
 import org.oscim.database.MapOptions;
 import org.oscim.database.OpenResult;
 import org.oscim.database.QueryResult;
@@ -199,10 +199,10 @@ public class MapDatabase implements IMapDatabase {
 	private int[] mIntBuffer;
 
 	private final GeometryBuffer mGeom = new GeometryBuffer(1 << 14, 1 << 8);
-	private final WayData mWay = new WayData();
 
 	private int minLat, minLon;
 	private Tile mTile;
+
 	private static boolean sMapExperimental;
 
 	/*
@@ -443,8 +443,6 @@ public class MapDatabase implements IMapDatabase {
 
 	}
 
-
-
 	private void processBlocks(IMapDatabaseCallback mapDatabaseCallback,
 			QueryParameters queryParameters,
 			SubFileParameter subFileParameter) throws IOException {
@@ -529,10 +527,10 @@ public class MapDatabase implements IMapDatabase {
 				}
 
 				// calculate the top-left coordinates of the underlying tile
-				double tileLatitudeDeg = Projection.tileYToLatitude(
+				double tileLatitudeDeg = MercatorProjection.tileYToLatitude(
 						subFileParameter.boundaryTileTop + row,
 						subFileParameter.baseZoomLevel);
-				double tileLongitudeDeg = Projection.tileXToLongitude(
+				double tileLongitudeDeg = MercatorProjection.tileXToLongitude(
 						subFileParameter.boundaryTileLeft
 								+ column, subFileParameter.baseZoomLevel);
 				mTileLatitude = (int) (tileLatitudeDeg * 1000000);
@@ -592,9 +590,10 @@ public class MapDatabase implements IMapDatabase {
 		Tag[] tags = null;
 		Tag[] curTags;
 
-		long x = mTile.tileX * Tile.SIZE;
-		long y = mTile.tileY * Tile.SIZE + Tile.SIZE;
-		long z = Tile.SIZE << mTile.zoomLevel;
+
+		long x = mTile.pixelX;
+		long y = mTile.pixelY + Tile.TILE_SIZE;
+		long z = Tile.TILE_SIZE << mTile.zoomLevel;
 
 		long dx = (x - (z >> 1));
 		long dy = (y - (z >> 1));
@@ -918,7 +917,7 @@ public class MapDatabase implements IMapDatabase {
 			int add = (hasName ? 1 : 0) + (hasHouseNr ? 1 : 0) + (hasRef ? 1 : 0);
 			int addTag = tags.length;
 
-			if (add > 0) {
+			if (add > 0){
 				curTags = new Tag[tags.length + add];
 				System.arraycopy(tags, 0, curTags, 0, tags.length);
 			}
@@ -980,12 +979,7 @@ public class MapDatabase implements IMapDatabase {
 						&& mGeom.points[1] == mGeom.points[l - 1];
 
 				projectToTile(mGeom.points, mGeom.index);
-				mWay.geom = mGeom;
-				mWay.layer = layer;
-				mWay.closed = closed;
-				mWay.tags = curTags;
-
-				mapDatabaseCallback.renderWay(mWay);
+				mapDatabaseCallback.renderWay(layer, curTags, mGeom, closed, 0);
 			}
 		}
 
@@ -1061,9 +1055,9 @@ public class MapDatabase implements IMapDatabase {
 
 	private boolean projectToTile(float[] coords, short[] indices) {
 
-		long x = mTile.tileX * Tile.SIZE;
-		long y = mTile.tileY * Tile.SIZE + Tile.SIZE;
-		long z = Tile.SIZE << mTile.zoomLevel;
+		long x = mTile.pixelX;
+		long y = mTile.pixelY + Tile.TILE_SIZE;
+		long z = Tile.TILE_SIZE << mTile.zoomLevel;
 
 		double divx, divy = 0;
 		long dx = (x - (z >> 1));
@@ -1087,7 +1081,7 @@ public class MapDatabase implements IMapDatabase {
 
 				lon = (float) ((coords[pos]) / divx - dx);
 				double sinLat = Math.sin(coords[pos + 1] * PI180);
-				lat = (float) (Tile.SIZE - (Math.log((1.0 + sinLat) / (1.0 - sinLat)) * divy + dy));
+				lat = (float) (Tile.TILE_SIZE - (Math.log((1.0 + sinLat) / (1.0 - sinLat)) * divy + dy));
 
 				if (cnt != 0) {
 					// drop small distance intermediate nodes

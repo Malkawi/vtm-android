@@ -74,7 +74,7 @@ public final class LineLayer extends Layer {
 		float x, y, nextX, nextY;
 		float a, ux, uy, vx, vy, wx, wy;
 
-		int tmax = Tile.SIZE + 4;
+		int tmax = Tile.TILE_SIZE + 4;
 		int tmin = -4;
 
 		boolean rounded = false;
@@ -85,10 +85,10 @@ public final class LineLayer extends Layer {
 		else if (line.cap == Cap.SQUARE)
 			squared = true;
 
-		if (vertexItems == null)
-			curItem = vertexItems = VertexItem.pool.get();
+		if (pool == null)
+			curItem = pool = VertexPool.get();
 
-		VertexItem si = curItem;
+		VertexPoolItem si = curItem;
 		short v[] = si.vertices;
 		int opos = si.used;
 
@@ -175,8 +175,8 @@ public final class LineLayer extends Layer {
 			// when the endpoint is outside the tile region omit round caps.
 			boolean outside = (x < tmin || x > tmax || y < tmin || y > tmax);
 
-			if (opos == VertexItem.SIZE) {
-				si = si.next = VertexItem.pool.get();
+			if (opos == VertexPoolItem.SIZE) {
+				si = si.next = VertexPool.get();
 				v = si.vertices;
 				opos = 0;
 			}
@@ -193,8 +193,8 @@ public final class LineLayer extends Layer {
 				v[opos++] = dx;
 				v[opos++] = dy;
 
-				if (opos == VertexItem.SIZE) {
-					si = si.next = VertexItem.pool.get();
+				if (opos == VertexPoolItem.SIZE) {
+					si = si.next = VertexPool.get();
 					v = si.vertices;
 					opos = 0;
 				}
@@ -204,8 +204,8 @@ public final class LineLayer extends Layer {
 				v[opos++] = dx;
 				v[opos++] = dy;
 
-				if (opos == VertexItem.SIZE) {
-					si = si.next = VertexItem.pool.get();
+				if (opos == VertexPoolItem.SIZE) {
+					si = si.next = VertexPool.get();
 					v = si.vertices;
 					opos = 0;
 				}
@@ -218,8 +218,8 @@ public final class LineLayer extends Layer {
 				v[opos++] = (short) (2 | ddx & DIR_MASK);
 				v[opos++] = (short) (2 | ddy & DIR_MASK);
 
-				if (opos == VertexItem.SIZE) {
-					si = si.next = VertexItem.pool.get();
+				if (opos == VertexPoolItem.SIZE) {
+					si = si.next = VertexPool.get();
 					v = si.vertices;
 					opos = 0;
 				}
@@ -233,8 +233,8 @@ public final class LineLayer extends Layer {
 				v[opos++] = (short) (0 | ddx & DIR_MASK);
 				v[opos++] = (short) (1 | ddy & DIR_MASK);
 
-				if (opos == VertexItem.SIZE) {
-					si = si.next = VertexItem.pool.get();
+				if (opos == VertexPoolItem.SIZE) {
+					si = si.next = VertexPool.get();
 					v = si.vertices;
 					opos = 0;
 				}
@@ -273,8 +273,8 @@ public final class LineLayer extends Layer {
 				v[opos++] = dx;
 				v[opos++] = dy;
 
-				if (opos == VertexItem.SIZE) {
-					si = si.next = VertexItem.pool.get();
+				if (opos == VertexPoolItem.SIZE) {
+					si = si.next = VertexPool.get();
 					v = si.vertices;
 					opos = 0;
 				}
@@ -284,8 +284,8 @@ public final class LineLayer extends Layer {
 				v[opos++] = dx;
 				v[opos++] = dy;
 
-				if (opos == VertexItem.SIZE) {
-					si = si.next = VertexItem.pool.get();
+				if (opos == VertexPoolItem.SIZE) {
+					si = si.next = VertexPool.get();
 					v = si.vertices;
 					opos = 0;
 				}
@@ -366,8 +366,8 @@ public final class LineLayer extends Layer {
 					ddx = -ddx;
 					ddy = -ddy;
 				}
-				if (opos == VertexItem.SIZE) {
-					si = si.next = VertexItem.pool.get();
+				if (opos == VertexPoolItem.SIZE) {
+					si = si.next = VertexPool.get();
 					v = si.vertices;
 					opos = 0;
 				}
@@ -377,8 +377,8 @@ public final class LineLayer extends Layer {
 				v[opos++] = (short) (0 | ddx & DIR_MASK);
 				v[opos++] = (short) (1 | ddy & DIR_MASK);
 
-				if (opos == VertexItem.SIZE) {
-					si = si.next = VertexItem.pool.get();
+				if (opos == VertexPoolItem.SIZE) {
+					si = si.next = VertexPool.get();
 					v = si.vertices;
 					opos = 0;
 				}
@@ -401,8 +401,8 @@ public final class LineLayer extends Layer {
 
 			outside = (x < tmin || x > tmax || y < tmin || y > tmax);
 
-			if (opos == VertexItem.SIZE) {
-				si.next = VertexItem.pool.get();
+			if (opos == VertexPoolItem.SIZE) {
+				si.next = VertexPool.get();
 				si = si.next;
 				opos = 0;
 				v = si.vertices;
@@ -425,8 +425,8 @@ public final class LineLayer extends Layer {
 				v[opos++] = (short) (0 | ddx & DIR_MASK);
 				v[opos++] = (short) (1 | ddy & DIR_MASK);
 
-				if (opos == VertexItem.SIZE) {
-					si = si.next = VertexItem.pool.get();
+				if (opos == VertexPoolItem.SIZE) {
+					si = si.next = VertexPool.get();
 					v = si.vertices;
 					opos = 0;
 				}
@@ -436,8 +436,8 @@ public final class LineLayer extends Layer {
 				v[opos++] = (short) (2 | -ddx & DIR_MASK);
 				v[opos++] = (short) (1 | -ddy & DIR_MASK);
 
-				if (opos == VertexItem.SIZE) {
-					si = si.next = VertexItem.pool.get();
+				if (opos == VertexPoolItem.SIZE) {
+					si = si.next = VertexPool.get();
 					v = si.vertices;
 					opos = 0;
 				}
@@ -454,8 +454,8 @@ public final class LineLayer extends Layer {
 				v[opos++] = dx;
 				v[opos++] = dy;
 
-				if (opos == VertexItem.SIZE) {
-					si = si.next = VertexItem.pool.get();
+				if (opos == VertexPoolItem.SIZE) {
+					si = si.next = VertexPool.get();
 					v = si.vertices;
 					opos = 0;
 				}
@@ -471,8 +471,8 @@ public final class LineLayer extends Layer {
 				v[opos++] = dx;
 				v[opos++] = dy;
 
-				if (opos == VertexItem.SIZE) {
-					si = si.next = VertexItem.pool.get();
+				if (opos == VertexPoolItem.SIZE) {
+					si = si.next = VertexPool.get();
 					v = si.vertices;
 					opos = 0;
 				}
@@ -502,8 +502,8 @@ public final class LineLayer extends Layer {
 				v[opos++] = (short) (0 | (flip ? -ddx : ddx) & DIR_MASK);
 				v[opos++] = (short) (1 | (flip ? -ddy : ddy) & DIR_MASK);
 
-				if (opos == VertexItem.SIZE) {
-					si = si.next = VertexItem.pool.get();
+				if (opos == VertexPoolItem.SIZE) {
+					si = si.next = VertexPool.get();
 					v = si.vertices;
 					opos = 0;
 				}
@@ -519,8 +519,8 @@ public final class LineLayer extends Layer {
 				v[opos++] = dx;
 				v[opos++] = dy;
 
-				if (opos == VertexItem.SIZE) {
-					si = si.next = VertexItem.pool.get();
+				if (opos == VertexPoolItem.SIZE) {
+					si = si.next = VertexPool.get();
 					v = si.vertices;
 					opos = 0;
 				}

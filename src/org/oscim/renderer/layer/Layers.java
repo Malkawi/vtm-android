@@ -179,21 +179,21 @@ public class Layers {
 	// optimization for Line- and PolygonLayer:
 	// collect all pool items and add back in one go
 	private static int addLayerItems(ShortBuffer sbuf, Layer l, byte type, int pos) {
-		VertexItem last = null, items = null;
+		VertexPoolItem last = null, items = null;
 		int size = 0;
 
 		for (; l != null; l = l.next) {
 			if (l.type != type)
 				continue;
 
-			for (VertexItem it = l.vertexItems; it != null; it = it.next) {
+			for (VertexPoolItem it = l.pool; it != null; it = it.next) {
 				if (it.next == null){
 					size += it.used;
 					sbuf.put(it.vertices, 0, it.used);
 				}
 				else{
-					size += VertexItem.SIZE;
-					sbuf.put(it.vertices, 0, VertexItem.SIZE);
+					size += VertexPoolItem.SIZE;
+					sbuf.put(it.vertices, 0, VertexPoolItem.SIZE);
 				}
 				last = it;
 			}
@@ -205,13 +205,13 @@ public class Layers {
 			pos += l.verticesCnt;
 
 			last.next = items;
-			items = l.vertexItems;
+			items = l.pool;
 			last = null;
 
-			l.vertexItems = null;
+			l.pool = null;
 			l.curItem = null;
 		}
-		VertexItem.pool.releaseAll(items);
+		VertexPool.release(items);
 
 		return size;
 	}
@@ -220,15 +220,15 @@ public class Layers {
 		// offset of layer data in vbo
 		l.offset = sbuf.position() * SHORT_BYTES;
 
-		for (VertexItem it = l.vertexItems; it != null; it = it.next) {
+		for (VertexPoolItem it = l.pool; it != null; it = it.next) {
 			if (it.next == null)
 				sbuf.put(it.vertices, 0, it.used);
 			else
-				sbuf.put(it.vertices, 0, VertexItem.SIZE);
+				sbuf.put(it.vertices, 0, VertexPoolItem.SIZE);
 		}
 
-		VertexItem.pool.releaseAll(l.vertexItems);
-		l.vertexItems = null;
+		VertexPool.release(l.pool);
+		l.pool = null;
 	}
 
 	// cleanup only when layers are not used by tile or overlay anymore!
@@ -237,9 +237,9 @@ public class Layers {
 		// clear line and polygon layers directly
 		Layer l = baseLayers;
 		while (l != null) {
-			if (l.vertexItems != null) {
-				VertexItem.pool.releaseAll(l.vertexItems);
-				l.vertexItems = null;
+			if (l.pool != null) {
+				VertexPool.release(l.pool);
+				l.pool = null;
 				l.curItem = null;
 			}
 			l = l.next;

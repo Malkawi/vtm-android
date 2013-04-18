@@ -18,7 +18,6 @@ package org.oscim.renderer;
 import org.oscim.renderer.GLRenderer.Matrices;
 import org.oscim.renderer.layer.Layer;
 import org.oscim.renderer.layer.TextureLayer;
-import org.oscim.renderer.layer.TextureItem;
 import org.oscim.utils.GlUtils;
 
 import android.opengl.GLES20;
@@ -68,14 +67,14 @@ public final class TextureRenderer {
 		else
 			GLES20.glUniform1f(hTextureScale, 1);
 
-		GLES20.glUniform1f(hTextureScreenScale, 1f / GLRenderer.screenWidth);
+		GLES20.glUniform1f(hTextureScreenScale, 1f / GLRenderer.mWidth);
 
 		m.proj.setAsUniform(hTextureProjMatrix);
 		m.mvp.setAsUniform(hTextureMVMatrix);
 
 		GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, GLRenderer.mQuadIndicesID);
 
-		for (TextureItem to = tl.textures; to != null; to = to.next) {
+		for (TextureObject to = tl.textures; to != null; to = to.next) {
 
 			GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, to.id);
 			int maxVertices = GLRenderer.maxQuads * INDICES_PER_SPRITE;
@@ -123,7 +122,7 @@ public final class TextureRenderer {
 			+ "       pos = u_proj * (u_mv * vec4(vertex.xy + dir * u_scale, 0.0, 1.0));"
 			+ "  } else {" // place as billboard
 			+ "    vec4 center = u_mv * vec4(vertex.xy, 0.0, 1.0);"
-			+ "    pos = u_proj * (center + vec4(dir * (coord_scale * u_swidth), 0.0, 0.0));"
+			+ "    pos = u_proj * (center + vec4(dir * (coord_scale * u_swidth), 0.1, 0.0));"
 			+ "  }"
 			+ "  gl_Position = pos;"
 			+ "  tex_c = tex_coord * div;"

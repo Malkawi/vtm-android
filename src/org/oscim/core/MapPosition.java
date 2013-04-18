@@ -15,73 +15,74 @@
  */
 package org.oscim.core;
 
-import org.oscim.utils.FastMath;
-
 /** A MapPosition Container. */
 public class MapPosition {
-	public final static int MAX_ZOOMLEVEL = 20;
-	public final static int MIN_ZOOMLEVEL = 2;
 
-	/** projected position x 0..1 */
-	public double x;
-	/** projected position y 0..1 */
-	public double y;
-	/** absolute scale */
-	public double scale;
+	public double lon;
+	public double lat;
 
-	/** rotation angle */
+	public int zoomLevel;
+	public float scale;
 	public float angle;
-	/** perspective tile */
 	public float tilt;
 
-	// to be removed
-	//  FastMath.log2((int) scale)
-	public int zoomLevel;
+	// map center in tile coordinates of current zoom-level
+	public double x;
+	public double y;
 
 	public MapPosition() {
+		this.zoomLevel = (byte) 1;
 		this.scale = 1;
-		this.x = 0.5;
-		this.y = 0.5;
-		this.zoomLevel = 1;
+		this.lat = 0;
+		this.lon = 0;
 		this.angle = 0;
+		this.x = MercatorProjection.longitudeToPixelX(this.lon, zoomLevel);
+		this.y = MercatorProjection.latitudeToPixelY(this.lat, zoomLevel);
 	}
 
-	public void setZoomLevel(int zoomLevel) {
+	/**
+	 * @param geoPoint
+	 *            the map position.
+	 * @param zoomLevel
+	 *            the zoom level.
+	 * @param scale
+	 *            ...
+	 */
+	public MapPosition(GeoPoint geoPoint, byte zoomLevel, float scale) {
 		this.zoomLevel = zoomLevel;
-		this.scale = 1 << zoomLevel;
-	}
-
-	public void setScale(double scale) {
-		this.zoomLevel = FastMath.log2((int) scale);
 		this.scale = scale;
+		this.lat = geoPoint.getLatitude();
+		this.lon = geoPoint.getLongitude();
+		this.angle = 0;
+		this.x = MercatorProjection.longitudeToPixelX(this.lon, zoomLevel);
+		this.y = MercatorProjection.latitudeToPixelY(this.lat, zoomLevel);
 	}
 
-	public void setPosition(GeoPoint geoPoint){
-		setPosition(geoPoint.getLatitude(), geoPoint.getLongitude());
-	}
-
-	public void setPosition(double latitude, double longitude) {
-		latitude = MercatorProjection.limitLatitude(latitude);
-		longitude = MercatorProjection.limitLongitude(longitude);
-		this.x = MercatorProjection.longitudeToX(longitude);
-		this.y = MercatorProjection.latitudeToY(latitude);
+	public MapPosition(double latitude, double longitude, int zoomLevel, float scale,
+			float angle) {
+		this.zoomLevel = zoomLevel;
+		this.scale = scale;
+		this.lat = latitude;
+		this.lon = longitude;
+		this.angle = angle;
+		this.x = MercatorProjection.longitudeToPixelX(longitude, zoomLevel);
+		this.y = MercatorProjection.latitudeToPixelY(latitude, zoomLevel);
 	}
 
 	public void copy(MapPosition other) {
 		this.zoomLevel = other.zoomLevel;
-		this.angle = other.angle;
 		this.scale = other.scale;
+		this.lat = other.lat;
+		this.lon = other.lon;
+		this.angle = other.angle;
 		this.x = other.x;
 		this.y = other.y;
 	}
 
-	public double getZoomScale() {
-		return scale / (1 << zoomLevel);
-	}
-
-	public GeoPoint getGeoPoint() {
-		return new GeoPoint(MercatorProjection.toLatitude(y),
-				MercatorProjection.toLongitude(x));
+	public void setFromLatLon(double latitude, double longitude, int zoomLevel){
+		this.zoomLevel = zoomLevel;
+		this.x = MercatorProjection.longitudeToPixelX(longitude, zoomLevel);
+		this.y = MercatorProjection.latitudeToPixelY(latitude, zoomLevel);
 	}
 
 	@Override
@@ -89,11 +90,11 @@ public class MapPosition {
 		StringBuilder builder = new StringBuilder();
 		builder.append("MapPosition [");
 		builder.append("lat=");
-		builder.append(MercatorProjection.toLatitude(y));
+		builder.append(this.lat);
 		builder.append(", lon=");
-		builder.append(MercatorProjection.toLongitude(x));
+		builder.append(this.lon);
 		builder.append(", zoomLevel=");
-		builder.append(zoomLevel);
+		builder.append(this.zoomLevel);
 		builder.append("]");
 		return builder.toString();
 	}

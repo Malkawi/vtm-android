@@ -130,9 +130,7 @@ public class LineTexRenderer {
 
 		GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, layers.vbo.id);
 
-		float scale = (float)pos.getZoomScale();
-
-		float s = scale / div;
+		float s = pos.scale / div;
 
 		//GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mTexID[0]);
 
@@ -148,7 +146,7 @@ public class LineTexRenderer {
 			GLES20.glUniform1f(hPatternScale, (GLRenderer.COORD_SCALE * line.stipple) / ps);
 			GLES20.glUniform1f(hPatternWidth, line.stippleWidth);
 
-			GLES20.glUniform1f(hScale, scale);
+			GLES20.glUniform1f(hScale, pos.scale);
 			// keep line width fixed
 			GLES20.glUniform1f(hWidth, ll.width / s * COORD_SCALE_BY_DIR_SCALE);
 

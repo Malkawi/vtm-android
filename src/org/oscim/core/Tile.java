@@ -24,7 +24,7 @@ public class Tile {
 	/**
 	 * Width and height of a map tile in pixel.
 	 */
-	public static int SIZE = 256;
+	public static int TILE_SIZE = 256;
 
 	/**
 	 * The X number of this tile.
@@ -42,6 +42,15 @@ public class Tile {
 	public final byte zoomLevel;
 
 	/**
+	 * the pixel X coordinate of the upper left corner of this tile.
+	 */
+	public final long pixelX;
+	/**
+	 * the pixel Y coordinate of the upper left corner of this tile.
+	 */
+	public final long pixelY;
+
+	/**
 	 * @param tileX
 	 *            the X number of the tile.
 	 * @param tileY
@@ -52,6 +61,8 @@ public class Tile {
 	public Tile(int tileX, int tileY, byte zoomLevel) {
 		this.tileX = tileX;
 		this.tileY = tileY;
+		this.pixelX = this.tileX * TILE_SIZE;
+		this.pixelY = this.tileY * TILE_SIZE;
 		this.zoomLevel = zoomLevel;
 	}
 

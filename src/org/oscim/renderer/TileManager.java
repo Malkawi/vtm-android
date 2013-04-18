@@ -27,13 +27,14 @@ import org.oscim.core.Tile;
 import org.oscim.generator.JobTile;
 import org.oscim.generator.TileDistanceSort;
 import org.oscim.renderer.layer.TextItem;
-import org.oscim.utils.FastMath;
+import org.oscim.renderer.layer.VertexPool;
 import org.oscim.view.MapView;
 import org.oscim.view.MapViewPosition;
 
 import android.util.Log;
 
 /**
+ * @author Hannes Janetzek
  * @TODO
  *       - prefetching to cache file
  *       - this class should probably not be in 'renderer' -> tilemap?
@@ -41,8 +42,6 @@ import android.util.Log;
  */
 public class TileManager {
 	static final String TAG = TileManager.class.getSimpleName();
-	private final static int MAX_ZOOMLEVEL = 17;
-	private final static int MIN_ZOOMLEVEL = 2;
 
 	// limit number tiles with new data not uploaded to GL
 	// TODO this should depend on the number of tiles displayed
@@ -111,12 +110,11 @@ public class TileManager {
 			// pass VBOs and VertexItems back to pools
 			for (int i = 0; i < mTilesSize; i++)
 				clearTile(mTiles[i]);
-		}
-		//else {
+		} else {
 			// mInitialized is set when surface changed
 			// and VBOs might be lost
-		//	VertexPool.init();
-		//}
+			VertexPool.init();
+		}
 
 		// clear cache index
 		QuadTree.init();
@@ -134,7 +132,7 @@ public class TileManager {
 
 		// set up TileSet large enough to hold current tiles
 		int num = Math.max(width, height);
-		int size = Tile.SIZE >> 1;
+		int size = Tile.TILE_SIZE >> 1;
 		int numTiles = (num * num) / (size * size) * 4;
 		mNewTiles = new TileSet(numTiles);
 		mCurrentTiles = new TileSet(numTiles);
@@ -150,10 +148,10 @@ public class TileManager {
 	 * 2. Add not yet loaded (or loading) tiles to JobQueue.
 	 * 3. Manage cache
 	 *
-	 * @param pos
+	 * @param mapPosition
 	 *            current MapPosition
 	 */
-	public synchronized void update(MapPosition pos) {
+	public synchronized void update(MapPosition mapPosition) {
 		// clear JobQueue and set tiles to state == NONE.
 		// one could also append new tiles and sort in JobQueue
 		// but this has the nice side-effect that MapWorkers dont
@@ -162,40 +160,25 @@ public class TileManager {
 		// jobs come in.
 		mMapView.addJobs(null);
 
-		// scale and translate projection to tile coordinates
-		// load some tiles more than currently visible (* 0.75)
-		//		float scale = mapPosition.scale * 0.75f;
-		//		float tileScale = scale * Tile.SIZE;
-		//		double px = mapPosition.x * scale;
-		//		double py = mapPosition.y * scale;
-		//
-		//		float[] coords = mTileCoords;
-		//		mMapViewPosition.getMapViewProjection(coords);
-		//		for (int i = 0; i < 8; i += 2) {
-		//			coords[i + 0] = (float)(px + coords[i + 0]) / tileScale;
-		//			coords[i + 1] = (float)(py + coords[i + 1]) / tileScale;
-		//		}
-
-		// scale and translate projection to tile coordinates
-		// load some tiles more than currently visible (* 0.75)
-		double scale = pos.scale * 0.5f;
-		double curScale = Tile.SIZE * scale;
-		int zoomLevel = FastMath.clamp(pos.zoomLevel, MIN_ZOOMLEVEL, MAX_ZOOMLEVEL);
-
-		double tileScale = Tile.SIZE * (scale / (1 << zoomLevel));
+		/* load some tiles more than currently visible */
+		float scale = mapPosition.scale * 0.7f;
+		float px = (float) mapPosition.x;
+		float py = (float) mapPosition.y;
 
 		float[] coords = mTileCoords;
 		mMapViewPosition.getMapViewProjection(coords);
 
+		// scale and translate projection to tile coordinates
 		for (int i = 0; i < 8; i += 2) {
-			coords[i + 0] = (float) ((pos.x * curScale + coords[i + 0]) / tileScale);
-			coords[i + 1] = (float) ((pos.y * curScale + coords[i + 1]) / tileScale);
+			coords[i + 0] = (px + coords[i + 0] / scale) / Tile.TILE_SIZE;
+			coords[i + 1] = (py + coords[i + 1] / scale) / Tile.TILE_SIZE;
 		}
+
+		mNewTiles.cnt = 0;
 
 		// scan visible tiles. callback function calls 'addTile'
 		// which sets mNewTiles
-		mNewTiles.cnt = 0;
-		mScanBox.scan(coords, zoomLevel);
+		mScanBox.scan(coords, mapPosition.zoomLevel);
 
 		MapTile[] newTiles = mNewTiles.tiles;
 		MapTile[] curTiles = mCurrentTiles.tiles;
@@ -243,7 +226,7 @@ public class TileManager {
 
 		JobTile[] jobs = new JobTile[mJobs.size()];
 		jobs = mJobs.toArray(jobs);
-		updateTileDistances(jobs, jobs.length, pos);
+		updateTileDistances(jobs, jobs.length, mapPosition);
 
 		// sets tiles to state == LOADING
 		mMapView.addJobs(jobs);
@@ -255,7 +238,7 @@ public class TileManager {
 		if (remove > CACHE_THRESHOLD ||
 				mTilesForUpload > MAX_TILES_IN_QUEUE)
 
-			limitCache(pos, remove);
+			limitCache(mapPosition, remove);
 	}
 
 	// need to keep track of TileSets to clear on reset...
@@ -313,7 +296,7 @@ public class TileManager {
 		tile = QuadTree.getTile(x, y, zoomLevel);
 
 		if (tile == null) {
-			tile = new MapTile(x, y, (byte) zoomLevel);
+			tile = new MapTile(x, y, (byte)zoomLevel);
 			QuadTree.add(tile);
 			mJobs.add(tile);
 			addToCache(tile);
@@ -397,7 +380,7 @@ public class TileManager {
 			t.layers = null;
 		}
 
-		TextItem.pool.releaseAll(t.labels);
+		TextItem.release(t.labels);
 
 		QuadTree.remove(t);
 		t.state = STATE_NONE;
@@ -407,13 +390,11 @@ public class TileManager {
 
 	private static void updateTileDistances(Object[] tiles, int size, MapPosition mapPosition) {
 		// TODO there is probably  a better quad-tree distance function
-
+		double x = mapPosition.x;
+		double y = mapPosition.y;
 		int zoom = mapPosition.zoomLevel;
-		double x = mapPosition.x * (1 << zoom);
-		double y = mapPosition.y * (1 << zoom);
-
-		final float h = 0.5f;
-		long center = (long)(h * (1 << zoom));
+		int h = Tile.TILE_SIZE >> 1;
+		long center = h << zoom;
 
 		for (int i = 0; i < size; i++) {
 			JobTile t = (JobTile) tiles[i];
@@ -425,16 +406,16 @@ public class TileManager {
 			dz = 0;
 
 			if (diff == 0) {
-				dx = (t.tileX + h) - x;
-				dy = (t.tileY + h) - y;
+				dx = (t.pixelX + h) - x;
+				dy = (t.pixelY + h) - y;
 				scale = 0.5f;
 			} else if (diff > 0) {
 				// tile zoom level is greater than current
 				// NB: distance increase by the factor 2
 				// with each zoom-level, so that children
 				// will be kept less likely than parent tiles.
-				dx = (t.tileX + h) - x * (1 << diff);
-				dy = (t.tileY + h) - y * (1 << diff);
+				dx = (t.pixelX + h) - x * (1 << diff);
+				dy = (t.pixelY + h) - y * (1 << diff);
 				// add tilesize/2 with each zoom-level
 				// so that children near the current
 				// map position but a few levels above
@@ -444,8 +425,8 @@ public class TileManager {
 			} else {
 				diff = -diff;
 				// tile zoom level is smaller than current
-				dx = (t.tileX + h) - x / (1 << diff);
-				dy = (t.tileY + h) - y / (1 << diff);
+				dx = (t.pixelX + h) - x / (1 << diff);
+				dy = (t.pixelY + h) - y / (1 << diff);
 				dz = diff * h;
 				scale = 0.5f * (1 << diff);
 			}

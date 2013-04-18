@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 Hannes Janetzek
+ * Copyright 2012 Hannes Janetzek
  *
  * This program is free software: you can redistribute it and/or modify it under the
  * terms of the GNU Lesser General Public License as published by the Free Software
@@ -12,8 +12,17 @@
  * You should have received a copy of the GNU Lesser General Public License along with
  * this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.oscim.utils.pool;
+package org.oscim.renderer.layer;
 
-public class LList<T> extends Inlist<LList<T>> {
-	T data;
+public class VertexPoolItem {
+	public final short[] vertices = new short[SIZE];
+
+	public int used;
+	public VertexPoolItem next;
+
+	// must be multiple of
+	// 4 (LineLayer/PolygonLayer),
+	// 24 (TexLineLayer - one block, i.e. two segments)
+	// 24 (TextureLayer)
+	public static final int SIZE = 360;
 }

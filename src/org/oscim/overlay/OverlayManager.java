@@ -17,6 +17,8 @@
 package org.oscim.overlay;
 
 import java.util.AbstractList;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.oscim.core.MapPosition;
@@ -64,9 +66,9 @@ public class OverlayManager extends AbstractList<Overlay> {
 	}
 
 	private boolean mDirtyOverlays;
-	private RenderOverlay[] mDrawLayers;
+	private final List<RenderOverlay> mDrawLayers = new ArrayList<RenderOverlay>();
 
-	public RenderOverlay[] getRenderLayers() {
+	public List<RenderOverlay> getRenderLayers() {
 		if (mDirtyOverlays)
 			updateOverlays();
 
@@ -89,23 +91,14 @@ public class OverlayManager extends AbstractList<Overlay> {
 
 		mOverlays = new Overlay[mOverlayList.size()];
 
-		int numRenderLayers = 0;
-
+		mDrawLayers.clear();
 		for (int i = 0, n = mOverlayList.size(); i < n; i++) {
-			Overlay o = mOverlayList.get(i);
-			if (o.getLayer() != null)
-				numRenderLayers++;
-
-			mOverlays[n - i - 1] = o;
-		}
-
-		mDrawLayers = new RenderOverlay[numRenderLayers];
-
-		for (int i = 0, cnt = 0, n = mOverlayList.size(); i < n; i++) {
 			Overlay o = mOverlayList.get(i);
 			RenderOverlay l = o.getLayer();
 			if (l != null)
-				mDrawLayers[cnt++] = l;
+				mDrawLayers.add(l);
+
+			mOverlays[n - i - 1] = o;
 		}
 
 		mDirtyOverlays = false;

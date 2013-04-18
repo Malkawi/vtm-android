@@ -14,28 +14,47 @@
  */
 package org.oscim.renderer.layer;
 
-import org.oscim.utils.pool.Inlist;
-import org.oscim.utils.pool.SyncPool;
-
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 
-public class SymbolItem extends Inlist<SymbolItem> {
+public class SymbolItem {
+	private static Object lock = new Object();
+	private static SymbolItem pool;
 
-	public final static SyncPool<SymbolItem> pool = new SyncPool<SymbolItem>() {
+	public static SymbolItem get() {
+		synchronized (lock) {
+			if (pool == null)
+				return new SymbolItem();
 
-		@Override
-		protected SymbolItem createItem() {
-			return new SymbolItem();
+			SymbolItem ti = pool;
+			pool = pool.next;
+
+			ti.next = null;
+
+			return ti;
 		}
+	}
 
-		@Override
-		protected void clearItem(SymbolItem it) {
-			// drop references
-			it.drawable = null;
-			it.bitmap = null;
+	public static void release(SymbolItem ti) {
+		if (ti == null)
+			return;
+
+		synchronized (lock) {
+			while (ti != null) {
+				SymbolItem next = ti.next;
+
+				ti.drawable = null;
+				ti.bitmap = null;
+
+				ti.next = pool;
+				pool = ti;
+
+				ti = next;
+			}
 		}
-	};
+	}
+
+	SymbolItem next;
 
 	public Bitmap bitmap;
 	public Drawable drawable;
@@ -46,4 +65,5 @@ public class SymbolItem extends Inlist<SymbolItem> {
 
 	// center, top, bottom, left, right, top-left...
 	//	byte placement;
+
 }

@@ -37,7 +37,7 @@ public class GridOverlay extends BasicOverlay {
 	public GridOverlay(MapView mapView) {
 		super(mapView);
 
-		int size = Tile.SIZE;
+		int size = Tile.TILE_SIZE;
 		float[] points = new float[64];
 		short[] index = new short[16];
 
@@ -71,13 +71,13 @@ public class GridOverlay extends BasicOverlay {
 	}
 
 	private void addLabels(int x, int y, int z) {
-		int size = Tile.SIZE;
+		int size = Tile.TILE_SIZE;
 
 		TextLayer tl = new TextLayer();
 
 		for (int i = -2; i < 2; i++) {
 			for (int j = -2; j < 2; j++) {
-				TextItem ti = TextItem.pool.get().set(size * j + size / 2, size * i + size / 2,
+				TextItem ti = TextItem.get().set(size * j + size / 2, size * i + size / 2,
 						(x + j) + " / " + (y + i) + " / " + z, mText);
 
 				// TextItem ti = new TextItem(size * j + size / 2, size * i +
@@ -93,6 +93,7 @@ public class GridOverlay extends BasicOverlay {
 			}
 		}
 		tl.prepare();
+
 		layers.textureLayers = tl;
 	}
 
@@ -100,28 +101,30 @@ public class GridOverlay extends BasicOverlay {
 	private int mCurY = -1;
 	private int mCurZ = -1;
 
+	private boolean finished;
+
+
 	@Override
 	public synchronized void update(MapPosition curPos, boolean positionChanged,
 			boolean tilesChanged, Matrices matrices) {
 
-		int z = 1 << curPos.zoomLevel;
+		mMapPosition.copy(curPos);
 
-		int x = (int) (curPos.x * z);
-		int y = (int) (curPos.y * z);
+		// fix map position to tile coordinates
+		float size = Tile.TILE_SIZE;
+		int x = (int) (mMapPosition.x / size);
+		int y = (int) (mMapPosition.y / size);
+		mMapPosition.x = x * size;
+		mMapPosition.y = y * size;
+
+		if (!finished)
+			mMapPosition.scale = 1;
 
 		// update layers when map moved by at least one tile
-		if (x != mCurX || y != mCurY || z != mCurZ) {
-
-			MapPosition pos = mMapPosition;
-
-			pos.copy(curPos);
-			pos.x = (double) x / z;
-			pos.y = (double) y / z;
-			pos.scale = z;
-
+		if (x != mCurX || y != mCurY || mMapPosition.zoomLevel != mCurZ) {
 			mCurX = x;
 			mCurY = y;
-			mCurZ = z;
+			mCurZ = mMapPosition.zoomLevel;
 
 			layers.clear();
 
@@ -131,7 +134,9 @@ public class GridOverlay extends BasicOverlay {
 			ll.addLine(mPoints, mIndex, false);
 
 			addLabels(x, y, mCurZ);
+
 			newData = true;
+			finished = false;
 		}
 	}
 }

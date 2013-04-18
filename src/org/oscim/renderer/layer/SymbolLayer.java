@@ -14,6 +14,7 @@
  */
 package org.oscim.renderer.layer;
 
+import org.oscim.renderer.TextureObject;
 import org.oscim.renderer.TextureRenderer;
 
 import android.graphics.Canvas;
@@ -26,8 +27,8 @@ import android.util.Log;
 public final class SymbolLayer extends TextureLayer {
 	private final static String TAG = SymbolLayer.class.getSimpleName();
 
-	private final static int TEXTURE_WIDTH = TextureItem.TEXTURE_WIDTH;
-	private final static int TEXTURE_HEIGHT = TextureItem.TEXTURE_HEIGHT;
+	private final static int TEXTURE_WIDTH = TextureObject.TEXTURE_WIDTH;
+	private final static int TEXTURE_HEIGHT = TextureObject.TEXTURE_HEIGHT;
 	private final static float SCALE = 8.0f;
 
 	SymbolItem symbols;
@@ -62,7 +63,7 @@ public final class SymbolLayer extends TextureLayer {
 
 		verticesCnt += 4;
 
-		SymbolItem item = SymbolItem.pool.get();
+		SymbolItem item = SymbolItem.get();
 		item.drawable = drawable;
 		item.x = x;
 		item.y = y;
@@ -92,9 +93,9 @@ public final class SymbolLayer extends TextureLayer {
 		short offsetIndices = 0;
 		short curIndices = 0;
 
-		curItem = VertexItem.pool.get();
-		vertexItems = curItem;
-		VertexItem si = curItem;
+		curItem = VertexPool.get();
+		pool = curItem;
+		VertexPoolItem si = curItem;
 
 		int pos = si.used;
 		short buf[] = si.vertices;
@@ -103,7 +104,7 @@ public final class SymbolLayer extends TextureLayer {
 		float x = 0;
 		float y = 0;
 
-		TextureItem to = TextureItem.pool.get();
+		TextureObject to = TextureObject.get();
 		textures = to;
 		mCanvas.setBitmap(to.bitmap);
 
@@ -139,7 +140,7 @@ public final class SymbolLayer extends TextureLayer {
 				offsetIndices = numIndices;
 				curIndices = 0;
 
-				to.next = TextureItem.pool.get();
+				to.next = TextureObject.get();
 				to = to.next;
 
 				mCanvas.setBitmap(to.bitmap);
@@ -195,9 +196,9 @@ public final class SymbolLayer extends TextureLayer {
 				short tx = (short) ((int) (SCALE * it2.x) & LBIT_MASK | (it2.billboard ? 1 : 0));
 				short ty = (short) (SCALE * it2.y);
 
-				if (pos == VertexItem.SIZE) {
-					si.used = VertexItem.SIZE;
-					si = si.next = VertexItem.pool.get();
+				if (pos == VertexPoolItem.SIZE) {
+					si.used = VertexPoolItem.SIZE;
+					si = si.next = VertexPool.get();
 					buf = si.vertices;
 					pos = 0;
 				}
@@ -248,12 +249,12 @@ public final class SymbolLayer extends TextureLayer {
 
 	@Override
 	protected void clear() {
-		TextureItem.pool.releaseAll(textures);
-		SymbolItem.pool.releaseAll(symbols);
-		VertexItem.pool.releaseAll(vertexItems);
+		TextureObject.release(textures);
+		SymbolItem.release(symbols);
+		VertexPool.release(pool);
 		textures = null;
 		symbols = null;
-		vertexItems = null;
+		pool = null;
 		verticesCnt = 0;
 	}
 }

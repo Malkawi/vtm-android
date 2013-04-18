@@ -41,7 +41,6 @@ import org.oscim.core.Tag;
 import org.oscim.core.Tile;
 import org.oscim.database.IMapDatabase;
 import org.oscim.database.IMapDatabaseCallback;
-import org.oscim.database.IMapDatabaseCallback.WayData;
 import org.oscim.database.MapInfo;
 import org.oscim.database.MapOptions;
 import org.oscim.database.OpenResult;
@@ -103,8 +102,6 @@ public class MapDatabase implements IMapDatabase {
 
 	private static final int MAX_TAGS_CACHE = 100;
 
-	private final WayData mWay = new WayData();
-
 	private static Map<String, Tag> tagHash = Collections
 			.synchronizedMap(new LinkedHashMap<String, Tag>(
 					MAX_TAGS_CACHE, 0.75f, true) {
@@ -130,7 +127,7 @@ public class MapDatabase implements IMapDatabase {
 		mCurTagCnt = 0;
 
 		// scale coordinates to tile size
-		mScaleFactor = REF_TILE_SIZE / Tile.SIZE;
+		mScaleFactor = REF_TILE_SIZE / Tile.TILE_SIZE;
 
 		File f = null;
 
@@ -454,12 +451,7 @@ public class MapDatabase implements IMapDatabase {
 		if (layer == 0)
 			layer = 5;
 
-		mWay.geom = mGeom;
-		mWay.tags = tags;
-		mWay.layer = layer;
-		mWay.closed = polygon;
-
-		mMapGenerator.renderWay(mWay);
+		mMapGenerator.renderWay((byte) layer, tags, mGeom, polygon, 0);
 		return true;
 	}
 
@@ -532,7 +524,7 @@ public class MapDatabase implements IMapDatabase {
 			lastX = lon + lastX;
 			lastY = lat + lastY;
 			coords[cnt++] = lastX / scale;
-			coords[cnt++] = Tile.SIZE - lastY / scale;
+			coords[cnt++] = Tile.TILE_SIZE - lastY / scale;
 		}
 
 		mGeom.index[0] = (short)numNodes;
@@ -722,7 +714,7 @@ public class MapDatabase implements IMapDatabase {
 			} else {
 				y = ((result >>> 1) ^ -(result & 1));
 				lastY = lastY + y;
-				coords[cnt++] = Tile.SIZE - lastY / scale;
+				coords[cnt++] = Tile.TILE_SIZE - lastY / scale;
 				even = true;
 			}
 		}
