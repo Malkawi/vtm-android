@@ -141,6 +141,10 @@ public class ItemizedIconOverlay<Item extends OverlayItem> extends ItemizedOverl
 	};
 	@Override
 	public boolean onLongPress(final MotionEvent event) {
+
+
+		if ( event.getPointerCount() == 2)
+			return false  ;
 		return activateSelectedItems(event, mActiveItemLongPress) || super.onLongPress(event);
 	}
 

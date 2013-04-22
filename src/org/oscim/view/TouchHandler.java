@@ -16,6 +16,9 @@
 
 package org.oscim.view;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 import org.oscim.core.Tile;
 import org.oscim.overlay.OverlayManager;
 
@@ -33,12 +36,16 @@ import android.view.MotionEvent;
  *        - fix recognition of tilt/rotate/scale state...
  */
 
-final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
+public final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 
 	private static final String TAG = TouchHandler.class.getName();
 
 	private static final boolean debug = false;
 
+	static final int LONGPRESS_THRESHOLD = 300;
+	private Timer longpressTimer = new Timer();
+	boolean mMultiLongPress = true;
+	public static boolean show ;
 	private final MapView mMapView;
 	private final MapViewPosition mMapPosition;
 	private final OverlayManager mOverlayManager;
@@ -63,6 +70,9 @@ final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 	private float mFocusX;
 	private float mFocusY;
 
+
+	public static  boolean dontMove;
+boolean mLongPress;
 	private final GestureDetector mGestureDetector;
 
 	protected static final int JUMP_THRESHOLD = 100;
@@ -78,7 +88,7 @@ final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 	 */
 	public TouchHandler(Context context, MapView mapView) {
 		mMapView = mapView;
-		mMapPosition = mapView.getMapPosition();
+		mMapPosition = mapView.getMapViewPosition();
 		mOverlayManager = mapView.getOverlayManager();
 		mGestureDetector = new GestureDetector(context, this);
 		mGestureDetector.setOnDoubleTapListener(this);
@@ -90,6 +100,8 @@ final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 	 * @return ...
 	 */
 	public boolean handleMotionEvent(MotionEvent e) {
+		Log.v("touch", "long");
+
 
 		if (mOverlayManager.onTouchEvent(e))
 			return true;
@@ -98,27 +110,29 @@ final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 
 		int action = getAction(e);
 
-		if (action == MotionEvent.ACTION_DOWN) {
+		if (action == MotionEvent.ACTION_DOWN && ! dontMove) {
 			mMulti = 0;
 			mWasMulti = false;
 			if (mOverlayManager.onDown(e))
 				return true;
 
 			return onActionDown(e);
-		} else if (action == MotionEvent.ACTION_MOVE) {
+		} else if (action == MotionEvent.ACTION_MOVE  && !dontMove ) {
 			return onActionMove(e);
 		} else if (action == MotionEvent.ACTION_UP) {
 			return onActionUp(e);
 		} else if (action == MotionEvent.ACTION_CANCEL) {
 			return onActionCancel();
-		} else if (action == MotionEvent.ACTION_POINTER_DOWN) {
+		} else if (action == MotionEvent.ACTION_POINTER_DOWN ) {
 			return onActionPointerDown(e);
-		} else if (action == MotionEvent.ACTION_POINTER_UP) {
+		} else if (action == MotionEvent.ACTION_POINTER_UP && !dontMove) {
 			return onActionPointerUp(e);
 		}
 
-		return false;
+		return true;
 	}
+
+	 boolean down;
 
 	private static int getAction(MotionEvent e) {
 		return e.getAction() & MotionEvent.ACTION_MASK;
@@ -126,10 +140,13 @@ final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 
 	private boolean onActionCancel() {
 		mDoubleTap = false;
+		mLongPress = true;
 		return true;
 	}
 
 	private boolean onActionMove(MotionEvent e) {
+
+		mMultiLongPress = false;
 		float x1 = e.getX(0);
 		float y1 = e.getY(0);
 
@@ -195,6 +212,7 @@ final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 			// decrease change of scale by the change of rotation
 			// * 20 is just arbitrary
 			if (mBeginRotate)
+				longpressTimer.cancel();
 				scale = 1 + ((scale - 1) * Math.max((1 - (float) Math.abs(r) * 20), 0));
 
 			mSumScale *= scale;
@@ -207,29 +225,34 @@ final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 
 			//Log.d(TAG, "zoom " + deltaPinchWidth + " " + scale + " " + mSumScale);
 			changed = mMapPosition.scaleMap(scale, fx, fy);
+			longpressTimer.cancel();
 		}
 
 		if (!mBeginRotate && Math.abs(slope) < 1) {
 			float my2 = y2 - mPrevY2;
+
 			float threshold = PINCH_TILT_THRESHOLD;
 			//Log.d(TAG, r + " " + slope + " m1:" + my + " m2:" + my2);
-
+			longpressTimer.cancel();
 			if ((my > threshold && my2 > threshold)
 					|| (my < -threshold && my2 < -threshold))
 			{
 				mBeginTilt = true;
+				longpressTimer.cancel();
 				changed = mMapPosition.tiltMap(my / 5);
 			}
 		} else if (!mBeginTilt && (mBeginRotate || Math.abs(r) > PINCH_ROTATE_THRESHOLD)) {
 			//Log.d(TAG, "rotate: " + mBeginRotate + " " + Math.toDegrees(rad));
+			//mLongPress=false ;
+			//longpressTimer.cancel();
 			if (!mBeginRotate) {
 				mAngle = rad;
-
+				longpressTimer.cancel();
 				mSumScale = 1;
 				mSumRotate = 0;
 
 				mBeginRotate = true;
-
+				longpressTimer.cancel();
 				mFocusX = (width / 2) - (x1 + x2) / 2;
 				mFocusY = (height / 2) - (y1 + y2) / 2;
 			} else {
@@ -237,6 +260,7 @@ final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 				mSumRotate += da;
 
 				if (Math.abs(da) > 0.001) {
+					longpressTimer.cancel();
 					mMapPosition.rotateMap(da, mFocusX, mFocusY);
 					changed = true;
 				}
@@ -245,6 +269,7 @@ final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 		}
 
 		if (changed) {
+			longpressTimer.cancel();
 			mMapView.redrawMap(true);
 			mPrevPinchWidth = pinchWidth;
 
@@ -279,10 +304,46 @@ final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 		}
 	}
 
-	private boolean onActionPointerDown(MotionEvent e) {
+	private final int multi = 0;
+	private long mMultiTouchDownTime;
+	boolean add ;
+	private boolean onActionPointerDown(final MotionEvent e) {
+
+
+		mMultiTouchDownTime = e.getEventTime();
+
+
+		mMultiLongPress = true;
+		longpressTimer = new Timer();
+		longpressTimer.schedule(new TimerTask() {
+			@Override
+			public void run() {
+				if (mLongPress)
+					return;
+
+				if (mOverlayManager.onLongPress(e)) {
+					return;
+				}
+			}
+
+		}, LONGPRESS_THRESHOLD);
+
 
 		mMulti++;
 		mWasMulti = true;
+
+
+		//if(mWasMulti){
+			//show = true;
+			//TileRenderer.show=false;
+
+
+//			down = false;
+
+//			mMapView.getOverlays().add(0,new MapLensOverlay(mMapView,0));
+	//		mMapView.getOverlays().add(1,new MapLensOverlay(mMapView,1));
+			add = false;
+	// 	}
 
 		updateMulti(e);
 
@@ -291,9 +352,14 @@ final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 
 	private boolean onActionPointerUp(MotionEvent e) {
 
+		//if ( e.getPointerCount()  == 2  && add)
+		//	 mOverlayManager.remove(1);
+
 		updateMulti(e);
 		mMulti--;
+mLongPress = false;
 
+		longpressTimer.cancel();
 		return true;
 	}
 
@@ -324,6 +390,16 @@ final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 
 		if (debug)
 			printState("onActionUp");
+
+
+		 add =false;
+
+//down= false;
+//TileRenderer.show=false;
+
+
+mLongPress = false;
+
 
 		mBeginRotate = false;
 		mBeginTilt = false;
@@ -382,8 +458,8 @@ final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 		if (mWasMulti)
 			return true;
 
-		int w = Tile.TILE_SIZE * 3;
-		int h = Tile.TILE_SIZE * 3;
+		int w = Tile.SIZE * 3;
+		int h = Tile.SIZE * 3;
 
 		//if (mMapView.enablePagedFling) {
 		//	double a = Math.sqrt(velocityX * velocityX + velocityY * velocityY);
@@ -408,6 +484,9 @@ final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 
 	@Override
 	public void onLongPress(MotionEvent e) {
+	//	this.mLongPress=true;
+		Log.v("touch", "long press");
+
 		if (mDoubleTap)
 			return;
 
@@ -434,7 +513,7 @@ final class TouchHandler implements OnGestureListener, OnDoubleTapListener {
 
 		mDoubleTap = true;
 		//mMapPosition.animateZoom(2);
-
+		mLongPress = true;
 		if (debug)
 			printState("onDoubleTap");
 

@@ -19,6 +19,7 @@ import java.nio.ByteOrder;
 import java.nio.ShortBuffer;
 
 import org.oscim.core.Tile;
+import org.oscim.database.IMapDatabaseCallback.WayData;
 import org.oscim.renderer.BufferObject;
 import org.oscim.renderer.GLRenderer;
 import org.oscim.utils.LineClipper;
@@ -57,13 +58,13 @@ public class ExtrusionLayer extends Layer {
 	private final static int IND_OUTLINE = 3;
 
 	public boolean compiled = false;
+	private final float mGroundResolution;
 
-	//private int[] mVboIds;
-
-	public ExtrusionLayer(int level) {
+	public ExtrusionLayer(int level, float groundResolution) {
 		this.type = Layer.EXTRUSION;
 		this.level = level;
 
+		mGroundResolution = groundResolution;
 		mVertices = mCurVertices = VertexPool.get();
 
 		mIndices = new VertexPoolItem[4];
@@ -71,10 +72,11 @@ public class ExtrusionLayer extends Layer {
 		for (int i = 0; i < 4; i++)
 			mIndices[i] = mCurIndices[i] = VertexPool.get();
 
-		mClipper = new LineClipper(0, 0, Tile.TILE_SIZE, Tile.TILE_SIZE);
+		mClipper = new LineClipper(0, 0, Tile.SIZE, Tile.SIZE);
 	}
 
-	public void addBuildings(float[] points, short[] index, int height) {
+	public void addBuildings(WayData way) {
+		//
 
 		// start outer ring
 		int outer = 0;
@@ -82,14 +84,30 @@ public class ExtrusionLayer extends Layer {
 		boolean simple = true;
 		int startVertex = mNumVertices;
 
-		// just a guessing to make it look ok
+		float height = way.height;
+		float minHeight = way.minHeight;
+
+		// 12m default
 		if (height == 0)
-			height = 10;
-		height = (int) (height * -Math.log(height / 100000f) * 3.6f);
+			height = 12 * 100;
+
+		// 10 cm steps
+		float sfactor = 1 / 10f;
+		height *= sfactor;
+		minHeight *= sfactor;
+
+		// match height with ground resultion
+		// (meter per pixel)
+		height /= mGroundResolution;
+		minHeight /= mGroundResolution;
+
+		// my preference
+		height *= 0.85;
+		minHeight *= 0.85;
 
 		int length = 0;
-		for (int ipos = 0, ppos = 0, n = index.length; ipos < n; ipos++, ppos += length) {
-			length = index[ipos];
+		for (int ipos = 0, ppos = 0, n = way.geom.index.length; ipos < n; ipos++, ppos += length) {
+			length = way.geom.index[ipos];
 
 			// end marker
 			if (length < 0)
@@ -107,8 +125,8 @@ public class ExtrusionLayer extends Layer {
 			int len = length;
 			if (!MapView.enableClosePolygons) {
 				len -= 2;
-			} else if (points[ppos] == points[ppos + len - 2]
-					&& points[ppos + 1] == points[ppos + len - 1]) {
+			} else if (way.geom.points[ppos] == way.geom.points[ppos + len - 2]
+					&& way.geom.points[ppos + 1] == way.geom.points[ppos + len - 1]) {
 				// vector-tile-map does not produce implicty closed
 				// polygons (yet)
 				len -= 2;
@@ -119,15 +137,15 @@ public class ExtrusionLayer extends Layer {
 				continue;
 
 			// check if polygon contains inner rings
-			if (simple && (ipos < n - 1) && (index[ipos + 1] > 0))
+			if (simple && (ipos < n - 1) && (way.geom.index[ipos + 1] > 0))
 				simple = false;
 
-			boolean convex = addOutline(points, ppos, len, height, simple);
+			boolean convex = addOutline(way.geom.points, ppos, len, minHeight, height, simple);
 
 			if (simple && (convex || len <= 8))
 				addRoofSimple(startVertex, len);
 			else if (ipos == outer) { // add roof only once
-				addRoof(startVertex, index, ipos, points, ppos);
+				addRoof(startVertex, way.geom.index, ipos, way.geom.points, ppos);
 			}
 		}
 	}
@@ -183,7 +201,7 @@ public class ExtrusionLayer extends Layer {
 		}
 	}
 
-	private boolean addOutline(float[] points, int pos, int len, float height,
+	private boolean addOutline(float[] points, int pos, int len, float minHeight, float height,
 			boolean convex) {
 
 		// add two vertices for last face to make zigzag indices work
@@ -191,6 +209,7 @@ public class ExtrusionLayer extends Layer {
 		int vertexCnt = len + (addFace ? 2 : 0);
 
 		short h = (short) height;
+		short mh = (short) minHeight;
 
 		float cx = points[pos + len - 2];
 		float cy = points[pos + len - 1];
@@ -241,7 +260,7 @@ public class ExtrusionLayer extends Layer {
 			vertices[v + 1] = vertices[v + 5] = (short) (cy * S);
 
 			// set height
-			vertices[v + 2] = 0;
+			vertices[v + 2] = mh;
 			vertices[v + 6] = h;
 
 			// get direction to next point

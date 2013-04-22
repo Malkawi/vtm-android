@@ -23,22 +23,17 @@ import android.opengl.GLSurfaceView;
 public class GLView extends GLSurfaceView {
 
 	MapView mMapView;
-	private final GLRenderer mRenderer;
+	private GLRenderer mRenderer;
 
-	public GLView(Context context, MapView mapView , int scale ) {
+	public GLView(Context context, MapView mapView) {
 		super(context);
-
-	//	mapView.getMapPosition().getMapPosition().zoomLevel+=scale;
 		mMapView = mapView;
-
-
 		// Log.d(TAG, "init GLSurfaceLayer");
 		setEGLConfigChooser(new GlConfigChooser());
 		setEGLContextClientVersion(2);
 
 		setDebugFlags(DEBUG_CHECK_GL_ERROR | DEBUG_LOG_GL_CALLS);
-		mRenderer = new GLRenderer(mMapView, scale );
-
+		mRenderer = new GLRenderer(mMapView);
 		setRenderer(mRenderer);
 
 		if (!MapView.debugFrameTime)

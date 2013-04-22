@@ -299,7 +299,7 @@
 	      </rule>
 
 	      <rule e="way" k="*" v="swimming_pool">
-	        <area fill="#b4cbdc" stroke="#6060ff" stroke-width="0.2" />
+	        <area fill="#d4ebfc" stroke="#6060ff" stroke-width="0.2" />
 	      </rule>
 
 	      <!-- <rule e="way" k="*" v="track"> <rule e="way" k="area" v="yes|true">
@@ -349,7 +349,7 @@
       </rule>
 
       <rule e="way" k="waterway" v="stream" zoom-min="14">
-         <use-line name="water" width="-0.7"/>
+         <use-line name="water" width="0.2" fixed="true"/>
       </rule>
 
       <rule e="way" k="waterway" v="river">

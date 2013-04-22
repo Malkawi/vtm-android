@@ -15,7 +15,6 @@
 package org.oscim.renderer.overlays;
 
 import org.oscim.core.MapPosition;
-import org.oscim.overlay.Overlay;
 import org.oscim.renderer.GLRenderer.Matrices;
 import org.oscim.renderer.layer.Layer;
 import org.oscim.renderer.layer.LineTexLayer;
@@ -24,30 +23,15 @@ import org.oscim.theme.renderinstruction.Line;
 import org.oscim.view.MapView;
 
 import android.graphics.Color;
-public class tess extends Overlay {
-
-
-	public tess(MapView mapView) {
-		super(mapView);
-
-		mLayer = new TestOverlay(mapView);
-
-	}
 
 public class TestOverlay extends BasicOverlay {
 
 	TextItem labels;
 
 	float drawScale;
-	float[] points = {
-			-1, -1,
-			1, -1,
-			1, 1,
-			-1, 1,
-			-1, -1
-			};
+
 	private boolean first = true;
-long timertick;
+
 	public TestOverlay(MapView mapView) {
 		super(mapView);
 
@@ -55,26 +39,32 @@ long timertick;
 		//LineLayer ll = (LineLayer) layers.getLayer(1, Layer.LINE);
 		//ll.line = new Line(Color.BLUE, 1.0f, Cap.BUTT);
 		//ll.width = 2;
-
+		float[] points = {
+				-100, -100,
+				100, -100,
+				100, 100,
+				-100, 100,
+				-100, -100
+				};
 		//short[] index = { (short) points.length };
 		//ll.addLine(points, index, true);
-timertick =System.currentTimeMillis()+2000;
+
+
 		LineTexLayer lt = (LineTexLayer) layers.getLayer(2, Layer.TEXLINE);
-		lt.line = new Line(Color.argb(60, 152,251,152), 6.0f, 0);
-		lt.width = 20;
+		lt.line = new Line(Color.BLUE, 1.0f, 8);
+		lt.width = 8;
 		lt.addLine(points, null);
 
 		float[] points2 = {
-				-2, -2,
-				2, -2,
-				2, 2,
-				-2, 2,
-				-2, -2
+				-200, -200,
+				200, -200,
+				200, 200,
+				-200, 200,
+				-200, -200
 				};
 		lt = (LineTexLayer) layers.getLayer(3, Layer.TEXLINE);
-		lt.line = new Line(Color.RED, 1.0f, 0);
+		lt.line = new Line(Color.BLUE, 1.0f, 16);
 		lt.width = 8;
-
 		lt.addLine(points2, null);
 
 		//
@@ -123,20 +113,20 @@ timertick =System.currentTimeMillis()+2000;
 		// TextItem ti = new TextItem(0, 0, "check one, check two", t);
 		// ti.x1 = 0;
 		// ti.y1 = 0;
-		// ti.x2 = (short) Tile.TILE_SIZE;
-		// ti.y2 = (short) Tile.TILE_SIZE;
+		// ti.x2 = (short) Tile.SIZE;
+		// ti.y2 = (short) Tile.SIZE;
 		//
 		// tl.addText(ti);
 		//
 		// layers.textureLayers = tl;
 	}
-float width =.2F;
+
 	@Override
 	public synchronized void update(MapPosition curPos, boolean positionChanged,
 			boolean tilesChanged, Matrices matrices) {
 		// keep position constant (or update layer relative to new position)
 		//mMapPosition.copy(curPos);
-		//matrices.mvp
+
 		if (first) {
 			// fix at initial position
 			mMapPosition.copy(curPos);
@@ -148,50 +138,6 @@ float width =.2F;
 			// afterwards never modify 'layers' outside of this function!
 			newData = true;
 		}
-
-
-if(timertick < System.currentTimeMillis() && curPos.zoomLevel >=16){
-
-points = new float [
-				]{-.3F, -.3F,
-		.3F, -.3F,
-		.3F, .3F,
-		-.3F, .3F,
-		-.3F, -.3F} ;
-	//short[] index = { (short) points.length };
-	//ll.addLine(points, index, true);
-
-layers.clear();
-
-
-timertick =System.currentTimeMillis()+20;
-	LineTexLayer lt = (LineTexLayer) layers.getLayer(0, Layer.TEXLINE);
-
-
-	lt.line = new Line(Color.argb((int)(20+width+40), 152,251,152), 7.0f , 0);
-	lt.width = 20+ width;
-	if(lt.width>= 80 ){
-		lt.width=1;
-		width= 20;
 	}
-	lt.addLine(points, null);
-
-	width+=3;
-	newData = true;
-	//mMapPosition.copy(curPos);
-//curPos.setFromLatLon(curPos.lat+.000000001F, curPos.lon, curPos.zoomLevel);
-	//mMapPosition.copy(curPos);
-}
-
-
-
-
-
-
-	}
-
-
-}
-
 
 }
