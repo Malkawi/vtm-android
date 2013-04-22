@@ -28,6 +28,7 @@ import org.oscim.utils.GlUtils;
 import org.oscim.view.MapView;
 
 import android.opengl.GLES20;
+import android.util.Log;
 
 /*
  * This is an example how to integrate custom OpenGL drawing routines as map overlay
@@ -38,8 +39,8 @@ import android.opengl.GLES20;
 public class CircleOverlay  extends Overlay{
 
 	  float raduis ;
-	  private float lat ; // storing the information related to the circle pos
-	  private float log ;
+	  private float latlatitude ; // storing the information related to the circle pos
+	  private float longitude ;
 public float getRaduis() {
 		return raduis;
 	}
@@ -67,6 +68,7 @@ private final Timer timer;
 	private int mProgramObject;
 	private int hVertexPosition;
 	private int hMatrixPosition;
+	private int hzoomlevel;
 float width ;
 	int hcolor;
 
@@ -79,15 +81,15 @@ float width ;
 	private FloatBuffer mVertices;
 	private final  float[] mVerticesData;
 	private boolean mInitialized;
-private MapView mMapView ;
-	private final float timerTick;
-private final  int scale ;
+//private MapView mMapView ;
+//	private final float timerTick;
+//private final  int scale ;
 
 
 
 	public CustomOverlay(final MapView mapView , float  raduis , int colorvar2) {
 		super(mapView);
-i=0;
+//i=0;
 
 timer = new Timer ();
 
@@ -108,7 +110,7 @@ timer.schedule( new TimerTask(){
 
 
 }
-, 400, 50);
+, 400, 70);
 	mVerticesData= new float [] {
 				-raduis, -raduis, -1, -1,
 				-raduis, raduis, -1, 1,
@@ -130,9 +132,8 @@ timer.schedule( new TimerTask(){
  colordata= new float []{colorvar,0,0,0};
 
  //Toast.makeText(mapView.getContext(), mapView.getRenderTheme(), Toast.LENGTH_LONG).show();
-
-	timerTick= System.currentTimeMillis()+10;
-	scale=1;
+//timerTick= System.currentTimeMillis()+10;
+	//scale=1;
 	}
 	// ---------- everything below runs in GLRender Thread ----------
 	@Override
@@ -205,7 +206,7 @@ timer.schedule( new TimerTask(){
 		// i.e. fixed on the map
 		setMatrix(pos, m);
 
-		float ratio =  (raduis) * i;
+	//	float ratio =  (raduis) * i;
 		i+=.1;
 		if(i>=1)
 			i=0;
@@ -219,6 +220,8 @@ timer.schedule( new TimerTask(){
 		GLES20.glUniform1f(hcolor, colorvar);
 		GLES20.glUniform1f(hwave, wave);
 
+		Log.v("zoom", String.valueOf(pos.zoomLevel));
+		GLES20.glUniform1f(hzoomlevel, pos.zoomLevel);
 		// Draw the triangle
 		GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
 
@@ -261,7 +264,7 @@ i++;
 
 		hcolor = GLES20.glGetUniformLocation(programObject, "radius");
   hwave = GLES20.glGetUniformLocation(programObject, "wave");
-
+hzoomlevel = GLES20.glGetUniformLocation(programObject, "zoomLevel");
 
 		// Store the program object
 		mProgramObject = programObject;
@@ -287,6 +290,7 @@ i++;
 				//	+" attribute vec4 u_color;"
 					+ "uniform float radius;"
 				 + " uniform float  wave ; "
+					+ "uniform float zoomLevel;"
 //					+ "uniform float blur;"
 //					+ "uniform vec2 center;"
 					+ "attribute vec4 a_pos;"
@@ -294,12 +298,17 @@ i++;
 					+" varying vec4 v_color;   "
 					+ "void main()"
 					+ "{"
-					+ "   gl_Position = u_mvp * vec4(a_pos.xy, 0.0, 1.0);"
+					+ "if (zoomLevel <= 12.0)  "
+					//+"{"
+					+"gl_Position = u_mvp * vec4(a_pos.xy, 0.0, .32- wave);"
+					//+" wave = .25; }  "
+					+"else "+
+					" gl_Position = u_mvp * vec4(a_pos.xy, 0.0, 1);"
 					+ "   tex = a_pos.zw;"
                     + "        if (radius > .5) "
-					+"        v_color = vec4 ( wave,1.0,0 , .31 - wave );     "
+					+"        v_color = vec4 ( .5-wave,1.0,0 , .31 - wave );     "
                     + "                  else "
-					+"      v_color = vec4 ( wave,1.0,.24,1);      "
+					+"      v_color = vec4 ( wave,0.23,1,1);      "
 					+ "}";
 
 	private final static String fShaderStr =
@@ -327,15 +336,15 @@ public CircleOverlay(MapView mapView , float raduis,int colorvar) {
 
 
 public float getLat() {
-	return lat;
+	return latlatitude;
 }
 public void setLat(float lat) {
-	this.lat = lat;
+	this.latlatitude = lat;
 }
 public float getLog() {
-	return log;
+	return longitude;
 }
 public void setLog(float log) {
-	this.log = log;
+	this.longitude = log;
 }
 }
