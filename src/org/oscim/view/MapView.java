@@ -60,7 +60,11 @@ public class MapView extends RelativeLayout {
 	private final MapViewPosition mMapViewPosition;
 	private final MapPosition mMapPosition;
 
-	private final Compass mCompass;
+	private  Compass mCompass;
+
+	public void setmCompass(Compass mCompass) {
+		this.mCompass = mCompass;
+	}
 
 	private DebugSettings mDebugSettings;
 
@@ -117,7 +121,7 @@ public class MapView extends RelativeLayout {
 
 		mLayerManager = new LayerManager(context);
 
-		mCompass = new Compass(mapActivity, this);
+		//mCompass = new Compass(mapActivity, this);
 
 		mGLView = new GLView(context, this);
 
@@ -157,6 +161,8 @@ public class MapView extends RelativeLayout {
 	}
 
 	public void setBackgroundMap(BitmapTileLayer tileLayer) {
+
+
 		mLayerManager.add(0, tileLayer);
 	}
 
@@ -181,13 +187,13 @@ public class MapView extends RelativeLayout {
 		mPausing = true;
 
 		if (this.mCompassEnabled)
-			mCompass.disable();
+			getmCompass().stop();
 
 	}
 
 	void onResume() {
 		if (this.mCompassEnabled)
-			mCompass.enable();
+			getmCompass().start();
 
 		mPausing = false;
 	}
@@ -367,9 +373,9 @@ public class MapView extends RelativeLayout {
 			enableRotation(false);
 
 		if (enable)
-			mCompass.enable();
+			getmCompass().start();
 		else
-			mCompass.disable();
+			getmCompass().stop();
 	}
 
 	public boolean getCompassEnabled() {
@@ -378,6 +384,10 @@ public class MapView extends RelativeLayout {
 
 	public boolean getRotationEnabled() {
 		return mRotationEnabled;
+	}
+
+	public Compass getmCompass() {
+		return mCompass;
 	}
 
 }
