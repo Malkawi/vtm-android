@@ -35,9 +35,9 @@ public class Compass implements SensorEventListener {
 
 	public void start() {
 		sensorManager.registerListener(this, gsensor,
-				SensorManager.SENSOR_DELAY_FASTEST);
+				SensorManager.SENSOR_DELAY_UI);
 		sensorManager.registerListener(this, msensor,
-				SensorManager.SENSOR_DELAY_FASTEST);
+				SensorManager.SENSOR_DELAY_UI);
 		map.getMapViewPosition().setRotation(-currectAzimuth);
 	}
 
@@ -59,7 +59,7 @@ public class Compass implements SensorEventListener {
 				0.5f);
 		currectAzimuth = azimuth;
 
-		an.setDuration(100);
+		an.setDuration(500);
 		an.setRepeatCount(0);
 		an.setFillAfter(true);
 
@@ -110,7 +110,7 @@ public class Compass implements SensorEventListener {
 				azimuth = (azimuth + 360) % 360;
 				// Log.d(TAG, "azimuth (deg): " + azimuth);
 				adjustArrow();
-			if(Math.abs(azimuth - angle)> 2f){
+			if(Math.abs(azimuth - angle)> .01f){
 
 				angle=azimuth;
 				this.map.getMapViewPosition().setRotation(-this.azimuth);
@@ -122,12 +122,12 @@ public class Compass implements SensorEventListener {
 
 	}
 public void rest (){
-
-
+	this.map.getMapViewPosition().setRotation(0);
+stop();
 	currectAzimuth =0 ;
 	azimuth=0;
 	adjustArrow();
-	this.map.getMapViewPosition().setRotation(-this.currectAzimuth);
+
 	map.redrawMap(true);
 
 }

@@ -425,6 +425,11 @@ public class MapViewPosition {
 		// stop animation
 		animCancel();
 
+		mMapView.getmCompass().azimuth=-mRotation;
+
+		mMapView.getmCompass().adjustArrow();
+
+
 		PointD p = applyRotation(mx, my);
 		move(p.x, p.y);
 	}
