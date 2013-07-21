@@ -24,8 +24,14 @@ public class GenericOverlay extends Overlay {
 	 * @param renderer
 	 *            ...
 	 */
+
+
+
 	public GenericOverlay(MapView mapView, RenderLayer renderer) {
 		super(mapView);
+
+
+
 		mLayer = renderer;
 	}
 }

@@ -15,9 +15,15 @@
 package org.oscim.renderer.layers.test;
 
 import org.oscim.core.MapPosition;
+import org.oscim.graphics.Color;
+import org.oscim.graphics.Paint.Cap;
 import org.oscim.renderer.GLRenderer.Matrices;
 import org.oscim.renderer.layers.BasicRenderLayer;
+import org.oscim.renderer.sublayers.Layer;
+import org.oscim.renderer.sublayers.LineLayer;
 import org.oscim.renderer.sublayers.TextItem;
+import org.oscim.theme.renderinstruction.Line;
+import org.oscim.utils.Matrix4;
 import org.oscim.view.MapView;
 
 public class TestRenderLayer extends BasicRenderLayer {
@@ -28,22 +34,23 @@ public class TestRenderLayer extends BasicRenderLayer {
 
 	private boolean first = true;
 
+	private final Matrix4 tmpMatrix = new Matrix4();
+
 	public TestRenderLayer(MapView mapView) {
 		super(mapView);
 
 		// draw a rectangle
-		//LineLayer ll = (LineLayer) layers.getLayer(1, Layer.LINE);
-		//ll.line = new Line(Color.BLUE, 1.0f, Cap.BUTT);
-		//ll.width = 2;
-		//		float[] points = {
-		//				-100, -100,
-		//				100, -100,
-		//				100, 100,
-		//				-100, 100,
-		//				-100, -100
-		//				};
-		//short[] index = { (short) points.length };
-		//ll.addLine(points, index, true);
+		LineLayer ll = (LineLayer) layers.getLayer(1, Layer.LINE);
+		ll.line = new Line(Color.BLUE, 1.0f, Cap.BUTT);
+		ll.width = 2;
+				float[] points = {
+						0, 0,
+						50, 50,
+						-50, 50
+
+						};
+		short[] index = { (short) points.length };
+		ll.addLine(points, index, true);
 
 		//		LineTexLayer lt = layers.getLineTexLayer(2);
 		//		lt.line = new Line(Color.BLUE, 1.0f, 8);
@@ -117,11 +124,24 @@ public class TestRenderLayer extends BasicRenderLayer {
 	}
 
 	@Override
+	public synchronized void render(MapPosition curPos, Matrices m) {
+		// TODO Auto-generated method stub
+
+		tmpMatrix.setRotation(0, 0, 0, 1);
+		m.mvp.multiplyMM(tmpMatrix, m.mvp);
+		m.mvp.setRotation(0, 0, 0, 1);
+		m.view.setRotation(0, 0, 0, 1);
+	//	m.viewproj.setRotation(curPos.angle, 0, 0, 0);
+
+super.render(curPos, m);
+	}
+
+	@Override
 	public synchronized void update(MapPosition curPos, boolean positionChanged,
 			Matrices matrices) {
 		// keep position constant (or update layer relative to new position)
-		//mMapPosition.copy(curPos);
-
+	//	mMapPosition.copy(curPos);
+//		mMapPosition.angle=0;
 		if (first) {
 			// fix at initial position
 			mMapPosition.copy(curPos);
@@ -133,6 +153,14 @@ public class TestRenderLayer extends BasicRenderLayer {
 			// afterwards never modify 'layers' outside of this function!
 			newData = true;
 		}
+
+
+
+
+
+//		mViewProjMatrix
+//
+//
 	}
 
 }

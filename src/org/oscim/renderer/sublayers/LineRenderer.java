@@ -40,7 +40,6 @@ public final class LineRenderer {
 	// factor to normalize extrusion vector and scale to coord scale
 	private final static float COORD_SCALE_BY_DIR_SCALE =
 			GLRenderer.COORD_SCALE / LineLayer.DIR_SCALE;
-
 	// shader handles
 	private static int[] lineProgram = new int[2];
 	private static int[] hLineVertexPosition = new int[2];
@@ -52,6 +51,8 @@ public final class LineRenderer {
 	private static int mTexID;
 
 	static boolean init() {
+
+
 		lineProgram[0] = GlUtils.createProgram(lineVertexShader,
 				lineFragmentShader);
 		if (lineProgram[0] == 0) {

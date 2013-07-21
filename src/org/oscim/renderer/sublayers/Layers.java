@@ -108,7 +108,7 @@ public class Layers {
 		return textLayer;
 	}
 
-	private Layer getLayer(int level, byte type) {
+	public Layer getLayer(int level, byte type) {
 		Layer l = baseLayers;
 		Layer layer = null;
 
